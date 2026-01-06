@@ -11,6 +11,8 @@ import meRouter from '@/routes/me.js';
 import customersRouter from '@/routes/customers.js';
 import locationsRouter from '@/routes/locations.js';
 import projectsRouter from '@/routes/projects.js';
+import workOrdersRouter from '@/routes/workOrders.js';
+import scheduleRouter from '@/routes/schedule.js';
 
 export function createApp(): Express {
   const app = express();
@@ -51,6 +53,8 @@ export function createApp(): Express {
   app.use(customersRouter);
   app.use(locationsRouter);
   app.use(projectsRouter);
+  app.use(workOrdersRouter);
+  app.use(scheduleRouter);
 
   // 404 handler - must come after all routes
   app.use(notFoundHandler);
