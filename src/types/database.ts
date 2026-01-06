@@ -69,3 +69,52 @@ export interface Project {
   qbo_job_ref: string | null;
   qbo_last_synced_at: string | null;
 }
+
+/**
+ * Work order status type
+ */
+export type WorkOrderStatus =
+  | 'UNSCHEDULED'
+  | 'SCHEDULED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CLOSED'
+  | 'CANCELED';
+
+/**
+ * Work order database record type
+ */
+export interface WorkOrder {
+  id: string;
+  customer_id: string;
+  location_id: string;
+  work_order_no: string | null;
+  status: WorkOrderStatus;
+  priority: number;
+  summary: string;
+  description: string;
+  requested_window_start: string | null;
+  requested_window_end: string | null;
+  assigned_to: string | null;
+  opened_at: string;
+  completed_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  contract_subtotal: number;
+  contract_tax: number;
+  contract_total: number;
+}
+
+/**
+ * Work order schedule database record type
+ */
+export interface WorkOrderSchedule {
+  id: string;
+  work_order_id: string;
+  tech_user_id: string;
+  start_at: string;
+  end_at: string;
+  created_at: string;
+  updated_at: string;
+}
