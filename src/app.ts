@@ -10,6 +10,7 @@ import healthRouter from '@/routes/health.js';
 import meRouter from '@/routes/me.js';
 import customersRouter from '@/routes/customers.js';
 import locationsRouter from '@/routes/locations.js';
+import projectsRouter from '@/routes/projects.js';
 
 export function createApp(): Express {
   const app = express();
@@ -49,6 +50,7 @@ export function createApp(): Express {
   app.use(meRouter);
   app.use(customersRouter);
   app.use(locationsRouter);
+  app.use(projectsRouter);
 
   // 404 handler - must come after all routes
   app.use(notFoundHandler);
