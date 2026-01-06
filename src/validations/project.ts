@@ -22,15 +22,9 @@ export const createProjectSchema = z.object({
 /**
  * Validation schema for updating an existing project
  * All fields are optional since this is a partial update
+ * Includes additional contract fields that can be manually updated by ADMIN
  */
-export const updateProjectSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  status: projectStatusEnum.optional(),
-  job_street: z.string().max(255).optional(),
-  job_city: z.string().max(100).optional(),
-  job_state: z.string().max(50).optional(),
-  job_zip: z.string().max(20).optional(),
-  budget_amount: z.number().min(0).optional(),
+export const updateProjectSchema = createProjectSchema.partial().extend({
   // Contract fields are typically updated via quote acceptance, but allow manual override for ADMIN
   base_contract_amount: z.number().min(0).optional(),
   change_order_amount: z.number().min(0).optional(),
