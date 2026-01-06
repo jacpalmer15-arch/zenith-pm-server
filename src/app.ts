@@ -8,6 +8,8 @@ import { notFoundHandler } from '@/middleware/notFound.js';
 import { errorHandler } from '@/middleware/errorHandler.js';
 import healthRouter from '@/routes/health.js';
 import meRouter from '@/routes/me.js';
+import customersRouter from '@/routes/customers.js';
+import locationsRouter from '@/routes/locations.js';
 
 export function createApp(): Express {
   const app = express();
@@ -45,6 +47,8 @@ export function createApp(): Express {
   // Routes
   app.use(healthRouter);
   app.use(meRouter);
+  app.use(customersRouter);
+  app.use(locationsRouter);
 
   // 404 handler - must come after all routes
   app.use(notFoundHandler);
