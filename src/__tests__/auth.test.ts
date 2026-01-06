@@ -1,33 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { requireRole } from '../middleware/requireRole.js';
 import type { Employee } from '../types/auth.js';
 
 describe('requireRole middleware', () => {
   let mockRequest: Partial<Request>;
   let mockResponse: Partial<Response>;
-  let nextFunction: ReturnType<typeof vi.fn>;
-  let jsonMock: ReturnType<typeof vi.fn>;
-  let statusMock: ReturnType<typeof vi.fn>;
+  let nextFunction: NextFunction;
 
   beforeEach(() => {
-    jsonMock = vi.fn();
-    statusMock = vi.fn(() => ({ json: jsonMock }));
+    const jsonMock = vi.fn();
+    const statusMock = vi.fn(() => mockResponse);
     
     mockRequest = {};
     mockResponse = {
-      status: statusMock,
-      json: jsonMock,
+      status: statusMock as unknown as Response['status'],
+      json: jsonMock as unknown as Response['json'],
     };
-    nextFunction = vi.fn();
+    nextFunction = vi.fn() as unknown as NextFunction;
   });
 
   it('should return 403 if no employee record in request', () => {
     const middleware = requireRole(['ADMIN']);
     middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
-    expect(statusMock).toHaveBeenCalledWith(403);
-    expect(jsonMock).toHaveBeenCalled();
+    expect(mockResponse.status).toHaveBeenCalledWith(403);
+    expect(mockResponse.json).toHaveBeenCalled();
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
@@ -47,8 +45,8 @@ describe('requireRole middleware', () => {
     const middleware = requireRole(['ADMIN']);
     middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
-    expect(statusMock).toHaveBeenCalledWith(403);
-    expect(jsonMock).toHaveBeenCalled();
+    expect(mockResponse.status).toHaveBeenCalledWith(403);
+    expect(mockResponse.json).toHaveBeenCalled();
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
@@ -69,7 +67,7 @@ describe('requireRole middleware', () => {
     middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
     expect(nextFunction).toHaveBeenCalled();
-    expect(statusMock).not.toHaveBeenCalled();
+    expect(mockResponse.status).not.toHaveBeenCalled();
   });
 
   it('should allow multiple roles', () => {
@@ -89,7 +87,7 @@ describe('requireRole middleware', () => {
     middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
     expect(nextFunction).toHaveBeenCalled();
-    expect(statusMock).not.toHaveBeenCalled();
+    expect(mockResponse.status).not.toHaveBeenCalled();
   });
 
   it('should block TECH role when only ADMIN and OFFICE allowed', () => {
@@ -108,7 +106,7 @@ describe('requireRole middleware', () => {
     const middleware = requireRole(['ADMIN', 'OFFICE']);
     middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
-    expect(statusMock).toHaveBeenCalledWith(403);
+    expect(mockResponse.status).toHaveBeenCalledWith(403);
     expect(nextFunction).not.toHaveBeenCalled();
   });
 });
