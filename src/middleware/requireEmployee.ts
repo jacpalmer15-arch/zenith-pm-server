@@ -1,18 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getSupabaseClient } from '@/config/supabase.js';
 import { errorResponse } from '@/types/response.js';
-import { Employee, Role } from '@/types/auth.js';
-
-interface EmployeeRow {
-  id: string;
-  display_name: string;
-  email: string | null;
-  phone: string | null;
-  role: Role;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import { Employee } from '@/types/auth.js';
 
 export async function requireEmployee(
   req: Request,
@@ -34,7 +23,7 @@ export async function requireEmployee(
       .from('employees')
       .select('*')
       .eq('id', req.auth.userId)
-      .single<EmployeeRow>();
+      .single<Employee>();
 
     if (error || !data) {
       res.status(403).json(
@@ -52,20 +41,10 @@ export async function requireEmployee(
     }
 
     // Attach employee to request
-    const employee: Employee = {
-      id: data.id,
-      display_name: data.display_name,
-      email: data.email,
-      phone: data.phone,
-      role: data.role,
-      is_active: data.is_active,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-    };
-
-    req.employee = employee;
+    req.employee = { ...data };
     next();
-  } catch {
+  } catch (error) {
+    console.error('Failed to fetch employee data:', error);
     res.status(500).json(
       errorResponse('INTERNAL_SERVER_ERROR', 'Failed to fetch employee data')
     );
