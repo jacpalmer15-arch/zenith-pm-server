@@ -11,6 +11,19 @@ export interface ApiError {
 }
 
 /**
+ * Type guard to check if an error is a PostgrestError
+ */
+function isPostgrestError(error: unknown): error is PostgrestError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    'details' in error &&
+    'message' in error
+  );
+}
+
+/**
  * Translates Supabase/Postgres errors to consistent API errors
  * Prevents leaking sensitive database details to clients
  * 
@@ -18,19 +31,16 @@ export interface ApiError {
  * @returns Translated API error
  */
 export function translateDbError(error: PostgrestError | Error): ApiError {
-  // Handle PostgrestError from Supabase
-  if ('code' in error && 'details' in error) {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    const pgError = error as PostgrestError;
-
+  // Handle PostgrestError from Supabase using type guard
+  if (isPostgrestError(error)) {
     // Map specific Postgres error codes
-    switch (pgError.code) {
+    switch (error.code) {
       case '23505': // unique_violation
         return {
           statusCode: 409,
           code: 'CONFLICT',
           message: 'A record with this value already exists',
-          details: pgError.details,
+          details: error.details,
         };
 
       case '23503': // foreign_key_violation
@@ -38,7 +48,7 @@ export function translateDbError(error: PostgrestError | Error): ApiError {
           statusCode: 400,
           code: 'BAD_REQUEST',
           message: 'Referenced record does not exist',
-          details: pgError.details,
+          details: error.details,
         };
 
       case '42P01': // undefined_table
@@ -53,7 +63,7 @@ export function translateDbError(error: PostgrestError | Error): ApiError {
           statusCode: 400,
           code: 'BAD_REQUEST',
           message: 'Required field is missing',
-          details: pgError.details,
+          details: error.details,
         };
 
       case '23514': // check_violation
@@ -61,7 +71,7 @@ export function translateDbError(error: PostgrestError | Error): ApiError {
           statusCode: 400,
           code: 'BAD_REQUEST',
           message: 'Invalid data value',
-          details: pgError.details,
+          details: error.details,
         };
 
       default:

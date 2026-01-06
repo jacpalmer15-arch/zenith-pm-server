@@ -30,7 +30,7 @@ export function parseSort(
   // Parse sort parameter
   const parts = sortParam.split(':');
   const field = parts[0]?.trim();
-  const directionStr = parts[1]?.trim().toLowerCase();
+  const directionPart = parts[1];
 
   // Validate field is in allowlist
   if (!field || !allowedFields.includes(field)) {
@@ -39,13 +39,16 @@ export function parseSort(
 
   // Parse direction with default
   let direction: 'asc' | 'desc' = 'asc';
-  if (directionStr === 'desc') {
-    direction = 'desc';
-  } else if (directionStr === 'asc' || directionStr === undefined) {
-    direction = 'asc';
-  } else {
-    // Invalid direction specified
-    return null;
+  if (directionPart !== undefined) {
+    const directionStr = directionPart.trim().toLowerCase();
+    if (directionStr === 'desc') {
+      direction = 'desc';
+    } else if (directionStr === 'asc') {
+      direction = 'asc';
+    } else {
+      // Invalid direction specified
+      return null;
+    }
   }
 
   return { field, direction };
