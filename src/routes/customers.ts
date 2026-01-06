@@ -7,8 +7,26 @@ import { requireRole } from '@/middleware/requireRole.js';
 import { createCustomerSchema, updateCustomerSchema } from '@/validations/customer.js';
 import { Customer } from '@/types/database.js';
 import { ZodError } from 'zod';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 const router = Router();
+
+/**
+ * Helper function to get next customer number from database
+ * Wraps the RPC call with proper typing
+ */
+async function getNextCustomerNumber(
+  supabase: SupabaseClient
+): Promise<{ customerNo: string | null; error: unknown }> {
+  const result = await supabase.rpc('get_next_number', {
+    p_kind: 'customer',
+  });
+
+  return {
+    customerNo: typeof result.data === 'string' ? result.data : null,
+    error: result.error,
+  };
+}
 
 /**
  * GET /api/customers
@@ -103,9 +121,7 @@ router.post(
       const supabase = createServerClient();
       
       // Call DB function to get next customer number
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const { data: customerNo, error: numberError } = await supabase
-        .rpc('get_next_number', { p_kind: 'customer' });
+      const { customerNo, error: numberError } = await getNextCustomerNumber(supabase);
       
       if (numberError || !customerNo) {
         console.error('Error generating customer number:', numberError);
@@ -120,7 +136,6 @@ router.post(
         .from('customers')
         .insert({
           ...validatedData,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           customer_no: customerNo,
           created_by: req.employee!.id,
           updated_by: req.employee!.id,

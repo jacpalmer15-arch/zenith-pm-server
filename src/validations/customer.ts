@@ -7,7 +7,7 @@ export const createCustomerSchema = z.object({
   name: z.string().min(1).max(255),
   contact_name: z.string().max(255).optional(),
   phone: z.string().max(50).optional(),
-  email: z.string().email().optional().or(z.literal('')),
+  email: z.string().email().optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
   billing_street: z.string().max(255).optional(),
   billing_city: z.string().max(100).optional(),
   billing_state: z.string().max(50).optional(),
