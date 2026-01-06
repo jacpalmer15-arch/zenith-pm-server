@@ -209,9 +209,13 @@ router.post(
 
       // If clock_out_at is set, enqueue job for cost posting
       if (data.clock_out_at) {
-        await enqueueJob(supabase, 'time_entry_cost_post', {
+        const { error: jobError } = await enqueueJob(supabase, 'time_entry_cost_post', {
           time_entry_id: data.id,
         });
+        if (jobError) {
+          console.error('Failed to enqueue cost posting job:', jobError);
+          // Continue - time entry was created successfully, job can be manually triggered
+        }
       }
 
       // Add computed hours
@@ -405,9 +409,13 @@ router.patch(
 
       // If clock_out_at was just set (completed entry), enqueue job for cost posting
       if (validatedData.clock_out_at && !currentEntry.clock_out_at) {
-        await enqueueJob(supabase, 'time_entry_cost_post', {
+        const { error: jobError } = await enqueueJob(supabase, 'time_entry_cost_post', {
           time_entry_id: data.id,
         });
+        if (jobError) {
+          console.error('Failed to enqueue cost posting job:', jobError);
+          // Continue - time entry was updated successfully, job can be manually triggered
+        }
       }
 
       // Add computed hours
