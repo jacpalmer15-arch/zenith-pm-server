@@ -18,6 +18,8 @@ import quotesRouter from '@/routes/quotes.js';
 import quoteLinesRouter from '@/routes/quoteLines.js';
 import receiptsRouter from '@/routes/receipts.js';
 import receiptLinesRouter from '@/routes/receiptLines.js';
+import invoicesRouter from '@/routes/invoices.js';
+import invoiceLinesRouter from '@/routes/invoiceLines.js';
 
 export function createApp(): Express {
   const app = express();
@@ -65,6 +67,8 @@ export function createApp(): Express {
   app.use(quoteLinesRouter);
   app.use(receiptsRouter);
   app.use(receiptLinesRouter);
+  app.use(invoicesRouter);
+  app.use(invoiceLinesRouter);
 
   // 404 handler - must come after all routes
   app.use(notFoundHandler);
