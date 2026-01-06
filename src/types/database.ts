@@ -192,3 +192,39 @@ export interface QuoteLine {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Receipt database record type
+ */
+export interface Receipt {
+  id: string;
+  vendor_name: string | null;
+  receipt_date: string | null;
+  total_amount: number;
+  storage_path: string;
+  notes: string | null;
+  is_allocated: boolean;
+  allocated_to_work_order_id: string | null;
+  allocated_overhead_bucket: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Receipt line item database record type
+ */
+export interface ReceiptLineItem {
+  id: string;
+  receipt_id: string;
+  line_no: number;
+  part_id: string | null;
+  description: string;
+  uom: string | null;
+  qty: number;
+  unit_cost: number;
+  amount: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
