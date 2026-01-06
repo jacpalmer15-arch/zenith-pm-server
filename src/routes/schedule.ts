@@ -92,7 +92,10 @@ router.patch(
       }
 
       // Additional validation: check end_at > start_at considering current values
-      // This is needed when only one field (start_at or end_at) is being updated
+      // Note: This check is essential and not redundant with schema validation.
+      // The schema only validates when BOTH start_at and end_at are provided in the request.
+      // This validation handles the case when only ONE field is being updated, by combining
+      // the new value with the existing value from the database to ensure the constraint holds.
       const startAt = validatedData.start_at || currentSchedule.start_at;
       const endAt = validatedData.end_at || currentSchedule.end_at;
 
