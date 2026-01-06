@@ -198,3 +198,384 @@ All API responses follow this envelope structure:
 - Check server logs for error details
 - Verify environment variables are correct
 - Ensure Supabase credentials are valid
+
+## Customer Endpoints
+
+### GET /api/customers
+
+List customers with pagination, search, and sort.
+
+**Authentication:** Required (Bearer token)
+
+**Query Parameters:**
+- `limit` (optional, default: 20, max: 100) - Number of results per page
+- `offset` (optional, default: 0) - Number of records to skip
+- `search` (optional) - Search by name, email, or phone (case-insensitive)
+- `sort` (optional) - Sort by field (e.g., `name:asc`, `created_at:desc`)
+
+**Request:**
+```
+GET http://localhost:3000/api/customers?search=acme&limit=10
+Authorization: Bearer <your-jwt-token>
+```
+
+**Expected Response:**
+```json
+{
+  "ok": true,
+  "data": [
+    {
+      "id": "uuid",
+      "customer_no": "CUST-000001",
+      "name": "Acme Corp",
+      "contact_name": "John Doe",
+      "phone": "+1234567890",
+      "email": "john@acme.com",
+      "billing_street": "123 Main St",
+      "billing_city": "Springfield",
+      "billing_state": "IL",
+      "billing_zip": "62701",
+      "service_street": null,
+      "service_city": null,
+      "service_state": null,
+      "service_zip": null,
+      "notes": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": "uuid",
+      "updated_by": "uuid",
+      "qbo_customer_ref": null,
+      "qbo_last_synced_at": null
+    }
+  ],
+  "error": null,
+  "meta": {
+    "pagination": {
+      "limit": 10,
+      "offset": 0,
+      "total": 1
+    }
+  }
+}
+```
+
+**Status Code:** `200 OK`
+
+**Access:** TECH (read-only), OFFICE, ADMIN
+
+### POST /api/customers
+
+Create a new customer.
+
+**Authentication:** Required (Bearer token)
+
+**Access:** OFFICE, ADMIN only (TECH returns 403)
+
+**Request:**
+```
+POST http://localhost:3000/api/customers
+Authorization: Bearer <your-jwt-token>
+Content-Type: application/json
+
+{
+  "name": "New Customer Inc",
+  "contact_name": "Jane Smith",
+  "phone": "+1987654321",
+  "email": "jane@newcustomer.com",
+  "billing_street": "456 Oak Ave",
+  "billing_city": "Chicago",
+  "billing_state": "IL",
+  "billing_zip": "60601",
+  "notes": "Important customer"
+}
+```
+
+**Expected Response:**
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "uuid",
+    "customer_no": "CUST-000002",
+    "name": "New Customer Inc",
+    ...
+  },
+  "error": null
+}
+```
+
+**Status Code:** `201 Created`
+
+### GET /api/customers/:id
+
+Get a single customer by ID.
+
+**Authentication:** Required (Bearer token)
+
+**Request:**
+```
+GET http://localhost:3000/api/customers/550e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <your-jwt-token>
+```
+
+**Expected Response:**
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "customer_no": "CUST-000001",
+    "name": "Acme Corp",
+    ...
+  },
+  "error": null
+}
+```
+
+**Status Code:** `200 OK` or `404 Not Found`
+
+**Access:** TECH (read-only), OFFICE, ADMIN
+
+### PATCH /api/customers/:id
+
+Update an existing customer.
+
+**Authentication:** Required (Bearer token)
+
+**Access:** OFFICE, ADMIN only (TECH returns 403)
+
+**Request:**
+```
+PATCH http://localhost:3000/api/customers/550e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <your-jwt-token>
+Content-Type: application/json
+
+{
+  "name": "Updated Customer Name",
+  "phone": "+1111111111"
+}
+```
+
+**Expected Response:**
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "customer_no": "CUST-000001",
+    "name": "Updated Customer Name",
+    ...
+  },
+  "error": null
+}
+```
+
+**Status Code:** `200 OK` or `404 Not Found`
+
+## Location Endpoints
+
+### GET /api/customers/:customerId/locations
+
+List all locations for a specific customer.
+
+**Authentication:** Required (Bearer token)
+
+**Request:**
+```
+GET http://localhost:3000/api/customers/550e8400-e29b-41d4-a716-446655440000/locations
+Authorization: Bearer <your-jwt-token>
+```
+
+**Expected Response:**
+```json
+{
+  "ok": true,
+  "data": [
+    {
+      "id": "uuid",
+      "customer_id": "550e8400-e29b-41d4-a716-446655440000",
+      "label": "Main Office",
+      "street": "123 Main St",
+      "city": "Springfield",
+      "state": "IL",
+      "zip": "62701",
+      "notes": null,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "error": null
+}
+```
+
+**Status Code:** `200 OK` or `404 Not Found` (if customer doesn't exist)
+
+**Access:** TECH (read-only), OFFICE, ADMIN
+
+### POST /api/customers/:customerId/locations
+
+Create a new location for a customer.
+
+**Authentication:** Required (Bearer token)
+
+**Access:** OFFICE, ADMIN only (TECH returns 403)
+
+**Request:**
+```
+POST http://localhost:3000/api/customers/550e8400-e29b-41d4-a716-446655440000/locations
+Authorization: Bearer <your-jwt-token>
+Content-Type: application/json
+
+{
+  "label": "Warehouse",
+  "street": "789 Industrial Blvd",
+  "city": "Springfield",
+  "state": "IL",
+  "zip": "62702",
+  "notes": "Back entrance only",
+  "is_active": true
+}
+```
+
+**Expected Response:**
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "uuid",
+    "customer_id": "550e8400-e29b-41d4-a716-446655440000",
+    "label": "Warehouse",
+    ...
+  },
+  "error": null
+}
+```
+
+**Status Code:** `201 Created` or `404 Not Found` (if customer doesn't exist)
+
+### GET /api/locations/:id
+
+Get a single location by ID.
+
+**Authentication:** Required (Bearer token)
+
+**Request:**
+```
+GET http://localhost:3000/api/locations/660f9511-f3ac-52e5-b827-557766551111
+Authorization: Bearer <your-jwt-token>
+```
+
+**Expected Response:**
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "660f9511-f3ac-52e5-b827-557766551111",
+    "customer_id": "550e8400-e29b-41d4-a716-446655440000",
+    "label": "Main Office",
+    ...
+  },
+  "error": null
+}
+```
+
+**Status Code:** `200 OK` or `404 Not Found`
+
+**Access:** TECH (read-only), OFFICE, ADMIN
+
+### PATCH /api/locations/:id
+
+Update an existing location.
+
+**Authentication:** Required (Bearer token)
+
+**Access:** OFFICE, ADMIN only (TECH returns 403)
+
+**Request:**
+```
+PATCH http://localhost:3000/api/locations/660f9511-f3ac-52e5-b827-557766551111
+Authorization: Bearer <your-jwt-token>
+Content-Type: application/json
+
+{
+  "city": "Chicago",
+  "is_active": false
+}
+```
+
+**Expected Response:**
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "660f9511-f3ac-52e5-b827-557766551111",
+    "customer_id": "550e8400-e29b-41d4-a716-446655440000",
+    "city": "Chicago",
+    "is_active": false,
+    ...
+  },
+  "error": null
+}
+```
+
+**Status Code:** `200 OK` or `404 Not Found`
+
+## Common Error Responses
+
+### 401 Unauthorized
+```json
+{
+  "ok": false,
+  "data": null,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid Authorization header"
+  }
+}
+```
+
+### 403 Forbidden
+```json
+{
+  "ok": false,
+  "data": null,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Access denied. Required role(s): OFFICE, ADMIN"
+  }
+}
+```
+
+### 400 Validation Error
+```json
+{
+  "ok": false,
+  "data": null,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request data",
+    "details": [
+      {
+        "code": "too_small",
+        "minimum": 1,
+        "type": "string",
+        "path": ["name"],
+        "message": "String must contain at least 1 character(s)"
+      }
+    ]
+  }
+}
+```
+
+### 404 Not Found
+```json
+{
+  "ok": false,
+  "data": null,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Customer not found"
+  }
+}
+```
