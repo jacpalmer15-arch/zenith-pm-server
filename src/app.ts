@@ -16,6 +16,8 @@ import scheduleRouter from '@/routes/schedule.js';
 import timeEntriesRouter from '@/routes/timeEntries.js';
 import quotesRouter from '@/routes/quotes.js';
 import quoteLinesRouter from '@/routes/quoteLines.js';
+import receiptsRouter from '@/routes/receipts.js';
+import receiptLinesRouter from '@/routes/receiptLines.js';
 
 export function createApp(): Express {
   const app = express();
@@ -61,6 +63,8 @@ export function createApp(): Express {
   app.use(timeEntriesRouter);
   app.use(quotesRouter);
   app.use(quoteLinesRouter);
+  app.use(receiptsRouter);
+  app.use(receiptLinesRouter);
 
   // 404 handler - must come after all routes
   app.use(notFoundHandler);
