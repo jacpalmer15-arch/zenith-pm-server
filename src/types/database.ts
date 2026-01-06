@@ -118,3 +118,18 @@ export interface WorkOrderSchedule {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Work order time entry database record type
+ */
+export interface WorkOrderTimeEntry {
+  id: string;
+  work_order_id: string;
+  tech_user_id: string;
+  clock_in_at: string;
+  clock_out_at: string | null;
+  break_minutes: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}

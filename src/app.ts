@@ -13,6 +13,7 @@ import locationsRouter from '@/routes/locations.js';
 import projectsRouter from '@/routes/projects.js';
 import workOrdersRouter from '@/routes/workOrders.js';
 import scheduleRouter from '@/routes/schedule.js';
+import timeEntriesRouter from '@/routes/timeEntries.js';
 
 export function createApp(): Express {
   const app = express();
@@ -55,6 +56,7 @@ export function createApp(): Express {
   app.use(projectsRouter);
   app.use(workOrdersRouter);
   app.use(scheduleRouter);
+  app.use(timeEntriesRouter);
 
   // 404 handler - must come after all routes
   app.use(notFoundHandler);
