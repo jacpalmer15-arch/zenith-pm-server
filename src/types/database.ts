@@ -133,3 +133,62 @@ export interface WorkOrderTimeEntry {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Quote type enum
+ */
+export type QuoteType = 'BASE' | 'CHANGE_ORDER';
+
+/**
+ * Quote status enum
+ */
+export type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED';
+
+/**
+ * Quote database record type
+ */
+export interface Quote {
+  id: string;
+  quote_no: string;
+  project_id: string | null;
+  work_order_id: string | null;
+  quote_type: QuoteType;
+  parent_quote_id: string | null;
+  status: QuoteStatus;
+  quote_date: string;
+  valid_until: string | null;
+  tax_rule_id: string;
+  tax_rate_snapshot: number | null;
+  subtotal: number;
+  tax_total: number;
+  total_amount: number;
+  accepted_at: string | null;
+  pdf_file_id: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+  qbo_estimate_ref: string | null;
+  qbo_last_synced_at: string | null;
+  qbo_push_status: string | null;
+}
+
+/**
+ * Quote line database record type
+ */
+export interface QuoteLine {
+  id: string;
+  quote_id: string;
+  line_no: number;
+  part_id: string | null;
+  description: string;
+  uom: string;
+  qty: number;
+  unit_price: number;
+  is_taxable: boolean;
+  line_subtotal: number;
+  line_tax: number;
+  line_total: number;
+  created_at: string;
+  updated_at: string;
+}
