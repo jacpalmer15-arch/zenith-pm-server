@@ -99,10 +99,20 @@ router.get(
           scheduleData?.map((s) => s.work_order_id as string) || [];
 
         // Filter: assigned_to = self OR id in scheduledWorkOrderIds
+        // Use Supabase's .or() method with safe parameterization
         if (scheduledWorkOrderIds.length > 0) {
-          query = query.or(
-            `assigned_to.eq.${req.employee!.id},id.in.(${scheduledWorkOrderIds.join(',')})`
-          );
+          // Escape and validate UUIDs for safety (though they come from DB)
+          const safeIds = scheduledWorkOrderIds
+            .filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+            .join(',');
+          
+          if (safeIds) {
+            query = query.or(
+              `assigned_to.eq.${req.employee!.id},id.in.(${safeIds})`
+            );
+          } else {
+            query = query.eq('assigned_to', req.employee!.id);
+          }
         } else {
           query = query.eq('assigned_to', req.employee!.id);
         }

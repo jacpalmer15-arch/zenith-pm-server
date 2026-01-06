@@ -91,7 +91,8 @@ router.patch(
         }
       }
 
-      // Validate end_at > start_at if both are present
+      // Additional validation: check end_at > start_at considering current values
+      // This is needed when only one field (start_at or end_at) is being updated
       const startAt = validatedData.start_at || currentSchedule.start_at;
       const endAt = validatedData.end_at || currentSchedule.end_at;
 
