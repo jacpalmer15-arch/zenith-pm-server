@@ -204,15 +204,20 @@ router.get(
       }
       
       // Get active locations for this customer
-      const { data: locations } = await supabase
+      const { data: locations, error: locationsError } = await supabase
         .from('locations')
         .select('*')
         .eq('customer_id', id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       
+      if (locationsError) {
+        console.error('Error fetching customer locations:', locationsError);
+        // Continue with empty locations array rather than failing the whole request
+      }
+      
       // Return customer with nested locations
-      res.json(successResponse({ ...customer, locations: locations || [] }));
+      res.json(successResponse({ customer, locations: locations || [] }));
     } catch (error) {
       console.error('Error fetching customer:', error);
       res.status(500).json(
