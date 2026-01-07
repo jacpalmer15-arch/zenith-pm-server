@@ -145,11 +145,34 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const signature = req.headers['x-signature'] as string | undefined;
-      const rawBody = req.rawBody || JSON.stringify(req.body);
+      
+      // Require raw body for signature verification
+      if (!req.rawBody) {
+        res.status(500).json(
+          errorResponse(
+            'INTERNAL_SERVER_ERROR',
+            'Raw body unavailable for signature verification'
+          )
+        );
+        return;
+      }
+      
+      const rawBody = req.rawBody;
       const payload = req.body as Record<string, unknown>;
 
       // Step 1: Verify HMAC Signature
       if (!signature) {
+        res.status(401).json(
+          errorResponse(
+            'INVALID_SIGNATURE',
+            'Invalid webhook signature'
+          )
+        );
+        return;
+      }
+
+      // Validate signature format (hexadecimal, 64 characters for SHA256)
+      if (!/^[a-f0-9]{64}$/i.test(signature)) {
         res.status(401).json(
           errorResponse(
             'INVALID_SIGNATURE',
@@ -164,20 +187,9 @@ router.post(
         .update(rawBody)
         .digest('hex');
 
-      // Timing-safe comparison
-      const signatureBuffer = Buffer.from(signature);
-      const expectedBuffer = Buffer.from(expectedSignature);
-
-      // Ensure buffers are same length before comparison
-      if (signatureBuffer.length !== expectedBuffer.length) {
-        res.status(401).json(
-          errorResponse(
-            'INVALID_SIGNATURE',
-            'Invalid webhook signature'
-          )
-        );
-        return;
-      }
+      // Timing-safe comparison (both are hex strings, convert to buffers)
+      const signatureBuffer = Buffer.from(signature, 'hex');
+      const expectedBuffer = Buffer.from(expectedSignature, 'hex');
 
       if (!timingSafeEqual(signatureBuffer, expectedBuffer)) {
         res.status(401).json(
