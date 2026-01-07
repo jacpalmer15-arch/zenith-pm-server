@@ -231,7 +231,7 @@ router.get(
 /**
  * PATCH /api/change-orders/:id
  * Update a change order (only if status is PENDING)
- * TECH role: not allowed (403)
+ * TECH role: not allowed (403) - TECH can create but not modify
  * OFFICE/ADMIN: allowed
  */
 router.patch(
@@ -468,8 +468,8 @@ router.post(
  * Workflow:
  * 1. Validate status is PENDING
  * 2. Set status = 'REJECTED'
- * 3. Set approved_by = req.employee.id (reviewer)
- * 4. Set approved_at = now()
+ * 3. Set approved_by = req.employee.id (acts as reviewer/rejector)
+ * 4. Set approved_at = now() (acts as reviewed_at/rejected_at timestamp)
  * 5. Optional: add rejection notes
  * 6. Create audit_logs entry with action = 'CHANGE_ORDER_REJECTED'
  */

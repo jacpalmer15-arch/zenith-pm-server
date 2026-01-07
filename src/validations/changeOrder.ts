@@ -11,7 +11,7 @@ export const changeOrderStatusEnum = z.enum(['PENDING', 'APPROVED', 'REJECTED'])
 export const createChangeOrderSchema = z.object({
   project_id: z.string().uuid(),
   description: z.string().min(1).max(1000),
-  amount: z.number(),
+  amount: z.number().finite(),
   notes: z.string().max(2000).optional(),
 });
 
@@ -21,7 +21,7 @@ export const createChangeOrderSchema = z.object({
  */
 export const updateChangeOrderSchema = z.object({
   description: z.string().min(1).max(1000).optional(),
-  amount: z.number().optional(),
+  amount: z.number().finite().optional(),
   notes: z.string().max(2000).optional(),
 });
 
