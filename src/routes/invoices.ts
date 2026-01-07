@@ -68,6 +68,9 @@ router.get(
       const workOrderId = typeof req.query.work_order_id === 'string' ? req.query.work_order_id.trim() : '';
       const status = typeof req.query.status === 'string' ? req.query.status.trim() : '';
 
+      // UUID validation regex
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
       // Build query
       let query = supabase
         .from('invoices')
@@ -75,6 +78,13 @@ router.get(
 
       // Apply filters
       if (customerId) {
+        // Validate UUID format to prevent injection
+        if (!uuidRegex.test(customerId)) {
+          res.status(400).json(
+            errorResponse('VALIDATION_ERROR', 'Invalid customer_id format')
+          );
+          return;
+        }
         // Need to join with projects or work_orders to filter by customer
         query = query.or(`project_id.in.(select id from projects where customer_id.eq.${customerId}),work_order_id.in.(select id from work_orders where customer_id.eq.${customerId})`);
       }
