@@ -49,7 +49,8 @@ CREATE TYPE "public"."inventory_txn_type" AS ENUM (
     'RECEIPT',
     'ADJUSTMENT',
     'USAGE',
-    'RETURN'
+    'RETURN',
+    'PURCHASE'
 );
 
 
@@ -689,12 +690,54 @@ CREATE TABLE IF NOT EXISTS "public"."parts" (
     "avg_cost" numeric(12,4) DEFAULT 0 NOT NULL,
     "last_cost" numeric(12,4) DEFAULT 0 NOT NULL,
     "is_active" boolean DEFAULT true NOT NULL,
+    "is_inventoried" boolean DEFAULT false NOT NULL,
+    "qty_on_hand" numeric(12,4) DEFAULT 0 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 
 ALTER TABLE "public"."parts" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."purchase_orders" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "po_no" "text" NOT NULL,
+    "vendor_name" "text" NOT NULL,
+    "po_date" "date" DEFAULT CURRENT_DATE NOT NULL,
+    "expected_delivery" "date",
+    "status" "text" DEFAULT 'DRAFT' NOT NULL,
+    "subtotal" numeric(12,2) DEFAULT 0 NOT NULL,
+    "tax" numeric(12,2) DEFAULT 0 NOT NULL,
+    "total" numeric(12,2) DEFAULT 0 NOT NULL,
+    "notes" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "created_by" "uuid",
+    "updated_by" "uuid"
+);
+
+
+ALTER TABLE "public"."purchase_orders" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."purchase_order_lines" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "po_id" "uuid" NOT NULL,
+    "line_no" integer DEFAULT 1 NOT NULL,
+    "part_id" "uuid",
+    "description" "text" NOT NULL,
+    "uom" "text" NOT NULL,
+    "qty_ordered" numeric(12,4) DEFAULT 1 NOT NULL,
+    "qty_received" numeric(12,4) DEFAULT 0 NOT NULL,
+    "unit_price" numeric(12,2) DEFAULT 0 NOT NULL,
+    "line_total" numeric(12,2) DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."purchase_order_lines" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."projects" (
@@ -1154,6 +1197,21 @@ ALTER TABLE ONLY "public"."part_categories"
 
 ALTER TABLE ONLY "public"."parts"
     ADD CONSTRAINT "parts_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."purchase_orders"
+    ADD CONSTRAINT "purchase_orders_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."purchase_orders"
+    ADD CONSTRAINT "purchase_orders_po_no_key" UNIQUE ("po_no");
+
+
+
+ALTER TABLE ONLY "public"."purchase_order_lines"
+    ADD CONSTRAINT "purchase_order_lines_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1638,6 +1696,16 @@ ALTER TABLE ONLY "public"."projects"
 
 
 
+ALTER TABLE ONLY "public"."purchase_order_lines"
+    ADD CONSTRAINT "purchase_order_lines_po_id_fkey" FOREIGN KEY ("po_id") REFERENCES "public"."purchase_orders"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."purchase_order_lines"
+    ADD CONSTRAINT "purchase_order_lines_part_id_fkey" FOREIGN KEY ("part_id") REFERENCES "public"."parts"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."quote_lines"
     ADD CONSTRAINT "quote_lines_part_id_fkey" FOREIGN KEY ("part_id") REFERENCES "public"."parts"("id") ON DELETE SET NULL;
 
@@ -1797,6 +1865,14 @@ CREATE POLICY "auth_read_write_projects" ON "public"."projects" TO "authenticate
 
 
 
+CREATE POLICY "auth_read_write_purchase_orders" ON "public"."purchase_orders" TO "authenticated" USING (true) WITH CHECK (true);
+
+
+
+CREATE POLICY "auth_read_write_purchase_order_lines" ON "public"."purchase_order_lines" TO "authenticated" USING (true) WITH CHECK (true);
+
+
+
 CREATE POLICY "auth_read_write_quote_lines" ON "public"."quote_lines" TO "authenticated" USING (true) WITH CHECK (true);
 
 
@@ -1851,6 +1927,12 @@ ALTER TABLE "public"."parts" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."projects" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."purchase_orders" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."purchase_order_lines" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."qbo_connections" ENABLE ROW LEVEL SECURITY;
@@ -2046,6 +2128,18 @@ GRANT ALL ON TABLE "public"."parts" TO "service_role";
 GRANT ALL ON TABLE "public"."projects" TO "anon";
 GRANT ALL ON TABLE "public"."projects" TO "authenticated";
 GRANT ALL ON TABLE "public"."projects" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."purchase_orders" TO "anon";
+GRANT ALL ON TABLE "public"."purchase_orders" TO "authenticated";
+GRANT ALL ON TABLE "public"."purchase_orders" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."purchase_order_lines" TO "anon";
+GRANT ALL ON TABLE "public"."purchase_order_lines" TO "authenticated";
+GRANT ALL ON TABLE "public"."purchase_order_lines" TO "service_role";
 
 
 

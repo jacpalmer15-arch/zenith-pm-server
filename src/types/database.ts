@@ -355,6 +355,8 @@ export interface Part {
   avg_cost: number;
   last_cost: number;
   is_active: boolean;
+  is_inventoried: boolean;
+  qty_on_hand: number;
   created_at: string;
   updated_at: string;
 }
@@ -362,7 +364,7 @@ export interface Part {
 /**
  * Inventory transaction type enum
  */
-export type InventoryTxnType = 'RECEIPT' | 'ADJUSTMENT' | 'USAGE' | 'RETURN';
+export type InventoryTxnType = 'RECEIPT' | 'ADJUSTMENT' | 'USAGE' | 'RETURN' | 'PURCHASE';
 
 /**
  * Inventory ledger database record type
@@ -377,4 +379,47 @@ export interface InventoryLedger {
   reference_type: string | null;
   reference_id: string | null;
   created_at: string;
+}
+
+/**
+ * Purchase order status type
+ */
+export type PurchaseOrderStatus = 'DRAFT' | 'SENT' | 'PARTIAL' | 'RECEIVED';
+
+/**
+ * Purchase order database record type
+ */
+export interface PurchaseOrder {
+  id: string;
+  po_no: string;
+  vendor_name: string;
+  po_date: string;
+  expected_delivery: string | null;
+  status: PurchaseOrderStatus;
+  subtotal: number;
+  tax: number;
+  total: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+}
+
+/**
+ * Purchase order line database record type
+ */
+export interface PurchaseOrderLine {
+  id: string;
+  po_id: string;
+  line_no: number;
+  part_id: string | null;
+  description: string;
+  uom: string;
+  qty_ordered: number;
+  qty_received: number;
+  unit_price: number;
+  line_total: number;
+  created_at: string;
+  updated_at: string;
 }
