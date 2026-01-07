@@ -420,7 +420,6 @@ router.post(
         .update({
           status: 'SENT',
           updated_by: req.employee!.id,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
         .select()
@@ -524,7 +523,6 @@ router.post(
           .from('purchase_order_lines')
           .update({
             qty_received: newQtyReceived,
-            updated_at: new Date().toISOString(),
           })
           .eq('id', receiveLine.line_id);
 
@@ -580,7 +578,6 @@ router.post(
               .from('parts')
               .update({
                 qty_on_hand: newQtyOnHand,
-                updated_at: new Date().toISOString(),
               })
               .eq('id', line.part_id);
 
@@ -621,7 +618,6 @@ router.post(
         .update({
           status: newStatus,
           updated_by: req.employee!.id,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
         .select()

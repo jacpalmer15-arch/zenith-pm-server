@@ -57,7 +57,6 @@ async function recalculatePurchaseOrderTotals(
     .update({
       subtotal,
       total,
-      updated_at: new Date().toISOString(),
     })
     .eq('id', poId);
 
@@ -331,7 +330,6 @@ router.patch(
         .update({
           ...validatedData,
           line_total: lineTotal,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
         .select()

@@ -395,7 +395,7 @@ export interface PurchaseOrder {
   vendor_name: string;
   po_date: string;
   expected_delivery: string | null;
-  status: string;
+  status: PurchaseOrderStatus;
   subtotal: number;
   tax: number;
   total: number;
