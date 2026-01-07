@@ -407,7 +407,7 @@ router.post(
         .from('projects')
         .select('base_contract_amount, change_order_amount')
         .eq('id', changeOrder.project_id)
-        .single();
+        .single<{ base_contract_amount: number; change_order_amount: number }>();
 
       if (projectFetchError) {
         console.error('Error fetching project:', projectFetchError);
@@ -416,8 +416,8 @@ router.post(
       }
 
       // Calculate new amounts
-      const newChangeOrderAmount = project.change_order_amount + changeOrder.amount;
-      const newContractAmount = project.base_contract_amount + newChangeOrderAmount;
+      const newChangeOrderAmount: number = project.change_order_amount + changeOrder.amount;
+      const newContractAmount: number = project.base_contract_amount + newChangeOrderAmount;
 
       // Update project's change_order_amount and contract_amount
       const { error: projectUpdateError } = await supabase
