@@ -26,6 +26,9 @@ import changeOrdersRouter from '@/routes/changeOrders.js';
 import purchaseOrdersRouter from '@/routes/purchaseOrders.js';
 import purchaseOrderLinesRouter from '@/routes/purchaseOrderLines.js';
 import adminJobsRouter from '@/routes/admin/jobs.js';
+import jobCostingRouter from '@/routes/reports/jobCosting.js';
+import profitLossRouter from '@/routes/reports/profitLoss.js';
+import jobCostDetailRouter from '@/routes/reports/jobCostDetail.js';
 
 export function createApp(): Express {
   const app = express();
@@ -81,6 +84,9 @@ export function createApp(): Express {
   app.use(purchaseOrdersRouter);
   app.use(purchaseOrderLinesRouter);
   app.use(adminJobsRouter);
+  app.use(jobCostingRouter);
+  app.use(profitLossRouter);
+  app.use(jobCostDetailRouter);
 
   // 404 handler - must come after all routes
   app.use(notFoundHandler);
