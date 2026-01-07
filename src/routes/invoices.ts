@@ -456,6 +456,35 @@ router.post(
         return;
       }
 
+      // If invoice is linked to a project, update project invoiced_amount
+      if (data.project_id) {
+        const { data: projectData, error: projectError } = await supabase
+          .from('projects')
+          .select('invoiced_amount')
+          .eq('id', data.project_id)
+          .single<{ invoiced_amount: number }>();
+
+        if (projectError) {
+          console.error('Error fetching project:', projectError);
+          // Don't fail the request if project update fails
+        } else {
+          const newInvoicedAmount = Number(projectData.invoiced_amount) + Number(data.total_amount);
+
+          const { error: projectUpdateError } = await supabase
+            .from('projects')
+            .update({
+              invoiced_amount: newInvoicedAmount,
+              updated_by: req.employee!.id,
+            })
+            .eq('id', data.project_id);
+
+          if (projectUpdateError) {
+            console.error('Error updating project invoiced amount:', projectUpdateError);
+            // Don't fail the request if project update fails
+          }
+        }
+      }
+
       res.json(successResponse(data));
     } catch (error) {
       console.error('Error sending invoice:', error);
@@ -585,15 +614,14 @@ router.post(
         return;
       }
 
-      // If invoice is linked to a project, update project amounts
+      // If invoice is linked to a project, update project paid_amount
       if (invoiceData.project_id) {
         // Get current project
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
-          .select('invoiced_amount, paid_amount')
+          .select('paid_amount')
           .eq('id', invoiceData.project_id)
           .single<{
-            invoiced_amount: number;
             paid_amount: number;
           }>();
 
@@ -601,14 +629,12 @@ router.post(
           console.error('Error fetching project:', projectError);
           // Don't fail the request if project update fails
         } else {
-          // Update project invoiced_amount and paid_amount
-          const newProjectInvoicedAmount = Number(projectData.invoiced_amount) + Number(invoiceData.total_amount);
+          // Update project paid_amount
           const newProjectPaidAmount = Number(projectData.paid_amount) + validatedData.amount;
 
           const { error: projectUpdateError } = await supabase
             .from('projects')
             .update({
-              invoiced_amount: newProjectInvoicedAmount,
               paid_amount: newProjectPaidAmount,
               updated_by: req.employee!.id,
             })
