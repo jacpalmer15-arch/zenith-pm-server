@@ -3,12 +3,12 @@ import request from 'supertest';
 import { createApp } from '../app.js';
 import type { ResponseEnvelope } from '../types/response.js';
 
-describe('Parts Routes', () => {
+describe('Tax Rules Routes', () => {
   const app = createApp();
 
-  describe('GET /api/parts', () => {
+  describe('GET /api/tax-rules', () => {
     it('should return 401 without Authorization header', async () => {
-      const response = await request(app).get('/api/parts');
+      const response = await request(app).get('/api/tax-rules');
 
       expect(response.status).toBe(401);
       const body = response.body as ResponseEnvelope;
@@ -19,7 +19,7 @@ describe('Parts Routes', () => {
 
     it('should return 401 with invalid Bearer token', async () => {
       const response = await request(app)
-        .get('/api/parts')
+        .get('/api/tax-rules')
         .set('Authorization', 'Bearer invalid-token');
 
       expect(response.status).toBe(401);
@@ -29,11 +29,11 @@ describe('Parts Routes', () => {
     });
   });
 
-  describe('POST /api/parts', () => {
+  describe('POST /api/tax-rules', () => {
     it('should return 401 without Authorization header', async () => {
       const response = await request(app)
-        .post('/api/parts')
-        .send({ name: 'Test Part', uom: 'EA' });
+        .post('/api/tax-rules')
+        .send({ name: 'Sales Tax', rate: 0.0825 });
 
       expect(response.status).toBe(401);
       const body = response.body as ResponseEnvelope;
@@ -43,18 +43,18 @@ describe('Parts Routes', () => {
 
     it('should return 401 with invalid Bearer token', async () => {
       const response = await request(app)
-        .post('/api/parts')
+        .post('/api/tax-rules')
         .set('Authorization', 'Bearer invalid-token')
-        .send({ name: 'Test Part', uom: 'EA' });
+        .send({ name: 'Sales Tax', rate: 0.0825 });
 
       expect(response.status).toBe(401);
     });
   });
 
-  describe('GET /api/parts/:id', () => {
+  describe('GET /api/tax-rules/:id', () => {
     it('should return 401 without Authorization header', async () => {
       const response = await request(app).get(
-        '/api/parts/550e8400-e29b-41d4-a716-446655440000'
+        '/api/tax-rules/550e8400-e29b-41d4-a716-446655440000'
       );
 
       expect(response.status).toBe(401);
@@ -64,11 +64,11 @@ describe('Parts Routes', () => {
     });
   });
 
-  describe('PATCH /api/parts/:id', () => {
+  describe('PATCH /api/tax-rules/:id', () => {
     it('should return 401 without Authorization header', async () => {
       const response = await request(app)
-        .patch('/api/parts/550e8400-e29b-41d4-a716-446655440000')
-        .send({ name: 'Updated Part' });
+        .patch('/api/tax-rules/550e8400-e29b-41d4-a716-446655440000')
+        .send({ name: 'Updated Tax Rule' });
 
       expect(response.status).toBe(401);
       const body = response.body as ResponseEnvelope;
@@ -77,10 +77,31 @@ describe('Parts Routes', () => {
     });
   });
 
-  describe('DELETE /api/parts/:id', () => {
+  describe('POST /api/tax-rules/:id/set-default', () => {
+    it('should return 401 without Authorization header', async () => {
+      const response = await request(app).post(
+        '/api/tax-rules/550e8400-e29b-41d4-a716-446655440000/set-default'
+      );
+
+      expect(response.status).toBe(401);
+      const body = response.body as ResponseEnvelope;
+      expect(body.ok).toBe(false);
+      expect(body.error).toHaveProperty('code', 'UNAUTHORIZED');
+    });
+
+    it('should return 401 with invalid Bearer token', async () => {
+      const response = await request(app)
+        .post('/api/tax-rules/550e8400-e29b-41d4-a716-446655440000/set-default')
+        .set('Authorization', 'Bearer invalid-token');
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('DELETE /api/tax-rules/:id', () => {
     it('should return 401 without Authorization header', async () => {
       const response = await request(app).delete(
-        '/api/parts/550e8400-e29b-41d4-a716-446655440000'
+        '/api/tax-rules/550e8400-e29b-41d4-a716-446655440000'
       );
 
       expect(response.status).toBe(401);
