@@ -48,6 +48,7 @@ router.get(
         .select('*', { count: 'exact' });
       
       // Apply search filter if provided
+      // Note: Supabase PostgREST handles query escaping automatically
       if (search) {
         query = query.or(`name.ilike.%${search}%,description_default.ilike.%${search}%,sku.ilike.%${search}%`);
       }

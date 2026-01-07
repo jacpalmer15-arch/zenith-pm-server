@@ -9,7 +9,7 @@ const inventoryTxnTypeEnum = z.enum(['RECEIPT', 'ADJUSTMENT', 'USAGE', 'RETURN']
  * Validation schema for creating a new inventory ledger entry
  */
 export const createInventoryLedgerSchema = z.object({
-  txn_date: z.string().datetime().optional(),
+  txn_date: z.string().datetime().optional(), // Optional: database defaults to CURRENT_DATE
   txn_type: inventoryTxnTypeEnum,
   qty_delta: z.number().refine(val => val !== 0, { message: 'qty_delta cannot be zero' }),
   unit_cost: z.number().min(0).optional(),

@@ -183,6 +183,15 @@ router.get(
       const txnType = typeof req.query.txn_type === 'string' ? req.query.txn_type : undefined;
       const referenceId = typeof req.query.reference_id === 'string' ? req.query.reference_id : undefined;
       
+      // Validate txn_type if provided
+      const validTxnTypes = ['RECEIPT', 'ADJUSTMENT', 'USAGE', 'RETURN'];
+      if (txnType && !validTxnTypes.includes(txnType)) {
+        res.status(400).json(
+          errorResponse('VALIDATION_ERROR', `Invalid txn_type. Must be one of: ${validTxnTypes.join(', ')}`)
+        );
+        return;
+      }
+      
       // Build query
       let query = supabase
         .from('inventory_ledger')
