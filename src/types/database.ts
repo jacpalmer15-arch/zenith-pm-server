@@ -228,3 +228,88 @@ export interface ReceiptLineItem {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Invoice type enum
+ */
+export type InvoiceType = 'STANDARD' | 'PROGRESS' | 'FINAL' | 'CHANGE_ORDER';
+
+/**
+ * Invoice status enum
+ */
+export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'PARTIAL' | 'VOID';
+
+/**
+ * Invoice database record type
+ */
+export interface Invoice {
+  id: string;
+  invoice_no: string;
+  project_id: string | null;
+  work_order_id: string | null;
+  invoice_type: InvoiceType;
+  status: InvoiceStatus;
+  invoice_date: string;
+  due_date: string | null;
+  tax_rule_id: string;
+  tax_rate_snapshot: number | null;
+  subtotal: number;
+  tax_total: number;
+  total_amount: number;
+  paid_amount: number;
+  sent_at: string | null;
+  paid_at: string | null;
+  pdf_file_id: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+  qbo_invoice_ref: string | null;
+  qbo_last_synced_at: string | null;
+  qbo_push_status: string | null;
+}
+
+/**
+ * Invoice line database record type
+ */
+export interface InvoiceLine {
+  id: string;
+  invoice_id: string;
+  line_no: number;
+  part_id: string | null;
+  description: string;
+  uom: string;
+  qty: number;
+  unit_price: number;
+  is_taxable: boolean;
+  line_subtotal: number;
+  line_tax: number;
+  line_total: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Payment method enum
+ */
+export type PaymentMethod = 'CHECK' | 'CASH' | 'ACH' | 'CREDIT_CARD' | 'WIRE' | 'OTHER';
+
+/**
+ * Payment database record type
+ */
+export interface Payment {
+  id: string;
+  invoice_id: string;
+  payment_no: string;
+  payment_date: string;
+  amount: number;
+  payment_method: PaymentMethod;
+  reference_no: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+  qbo_payment_ref: string | null;
+  qbo_last_synced_at: string | null;
+}
