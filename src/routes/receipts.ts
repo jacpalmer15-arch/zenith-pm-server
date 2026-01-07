@@ -12,12 +12,22 @@ import { requireRole } from '@/middleware/requireRole.js';
 import {
   createReceiptSchema,
   updateReceiptSchema,
+  allocateReceiptSchema,
+  type AllocateToWorkOrderInput,
+  type AllocateToOverheadInput,
 } from '@/validations/receipt.js';
-import { allocateReceiptSchema } from '@/validations/allocation.js';
 import { Receipt } from '@/types/database.js';
 import { ZodError } from 'zod';
+import { createAuditLog } from '@/services/auditLog.js';
 
 const router = Router();
+
+// Type guard for work order allocation
+function isWorkOrderAllocation(
+  data: AllocateToWorkOrderInput | AllocateToOverheadInput
+): data is AllocateToWorkOrderInput {
+  return 'allocated_to_work_order_id' in data;
+}
 
 /**
  * GET /api/receipts
@@ -337,12 +347,12 @@ router.post(
 
       const supabase = createServerClient();
 
-      // Check if receipt exists and is not already allocated
+      // Fetch current receipt with full data for before_data
       const { data: currentReceipt, error: fetchError } = await supabase
         .from('receipts')
-        .select('is_allocated')
+        .select('*')
         .eq('id', id)
-        .single<Pick<Receipt, 'is_allocated'>>();
+        .single<Receipt>();
 
       if (fetchError) {
         if (fetchError.code === 'PGRST116') {
@@ -362,23 +372,73 @@ router.post(
       if (currentReceipt.is_allocated) {
         res.status(400).json(
           errorResponse(
-            'VALIDATION_ERROR',
-            'Receipt is already allocated'
+            'ALREADY_ALLOCATED',
+            'Receipt has already been allocated'
           )
         );
         return;
       }
 
-      // Update receipt with allocation details
-      const updateData: Record<string, unknown> = {
-        is_allocated: true,
-      };
+      // Use type guard to narrow the union type
+      if (isWorkOrderAllocation(validatedData)) {
+        // Now TypeScript knows this is AllocateToWorkOrderInput
+        const workOrderId = validatedData.allocated_to_work_order_id;
+        const { data: workOrder, error: woError } = await supabase
+          .from('work_orders')
+          .select('id')
+          .eq('id', workOrderId)
+          .single();
 
-      if (validatedData.allocated_to_work_order_id) {
-        updateData.allocated_to_work_order_id = validatedData.allocated_to_work_order_id;
-      } else if (validatedData.allocated_overhead_bucket) {
-        updateData.allocated_overhead_bucket = validatedData.allocated_overhead_bucket;
+        if (woError || !workOrder) {
+          res.status(400).json(
+            errorResponse(
+              'INVALID_WORK_ORDER',
+              'Work order not found'
+            )
+          );
+          return;
+        }
       }
+
+      // Create cost_entries for each line
+      const lines = validatedData.lines;
+      const costEntries = lines.map((line) => ({
+        receipt_id: id,
+        bucket: line.bucket,
+        origin: line.origin,
+        qty: line.qty,
+        unit_cost: line.unit_cost,
+        total_cost: line.total_cost,
+        occurred_at: line.occurred_at,
+        work_order_id: isWorkOrderAllocation(validatedData)
+          ? validatedData.allocated_to_work_order_id
+          : null,
+        part_id: line.part_id || null,
+      }));
+
+      const { data: createdEntries, error: entriesError } = await supabase
+        .from('cost_entries')
+        .insert(costEntries)
+        .select();
+
+      if (entriesError) {
+        const apiError = translateDbError(entriesError);
+        res.status(apiError.statusCode).json(
+          errorResponse(apiError.code, apiError.message, apiError.details)
+        );
+        return;
+      }
+
+      // Update receipt with allocation details
+      const updateData: Partial<Receipt> = {
+        is_allocated: true,
+        allocated_to_work_order_id: isWorkOrderAllocation(validatedData)
+          ? validatedData.allocated_to_work_order_id
+          : null,
+        allocated_overhead_bucket: isWorkOrderAllocation(validatedData)
+          ? null
+          : validatedData.allocated_overhead_bucket,
+      };
 
       const { data: updatedReceipt, error: updateError } = await supabase
         .from('receipts')
@@ -388,6 +448,12 @@ router.post(
         .single<Receipt>();
 
       if (updateError) {
+        // Rollback: delete cost entries
+        await supabase
+          .from('cost_entries')
+          .delete()
+          .eq('receipt_id', id);
+
         const apiError = translateDbError(updateError);
         res.status(apiError.statusCode).json(
           errorResponse(apiError.code, apiError.message, apiError.details)
@@ -395,63 +461,18 @@ router.post(
         return;
       }
 
-      // If work order allocation and lines are provided, create job_cost_entries
-      if (validatedData.allocated_to_work_order_id && validatedData.lines) {
-        const jobCostEntries = validatedData.lines.map((line, index) => {
-          const amount = Math.round(line.qty * line.unit_cost * 100) / 100;
-          const txnDate = updatedReceipt.receipt_date || new Date().toISOString().split('T')[0];
-          return {
-            work_order_id: validatedData.allocated_to_work_order_id,
-            cost_type_id: line.cost_type_id,
-            cost_code_id: line.cost_code_id,
-            part_id: line.part_id || null,
-            txn_date: txnDate,
-            qty: line.qty,
-            unit_cost: line.unit_cost,
-            amount: amount,
-            description: line.description || null,
-            receipt_id: id,
-            source_type: 'receipt',
-            idempotency_key: `receipt:${id}:line:${index + 1}`,
-            created_by: req.employee!.id,
-          };
-        });
-
-        const { error: costEntriesError } = await supabase
-          .from('job_cost_entries')
-          .insert(jobCostEntries);
-
-        if (costEntriesError) {
-          // Rollback: mark receipt as not allocated
-          await supabase
-            .from('receipts')
-            .update({
-              is_allocated: false,
-              allocated_to_work_order_id: null,
-            })
-            .eq('id', id);
-
-          const apiError = translateDbError(costEntriesError);
-          res.status(apiError.statusCode).json(
-            errorResponse(apiError.code, apiError.message, apiError.details)
-          );
-          return;
-        }
-      }
-
       // Create audit log entry
-      const auditEntry = {
+      await createAuditLog(supabase, {
         entity_type: 'receipt',
         entity_id: id,
         action: 'RECEIPT_ALLOCATED',
         actor_user_id: req.employee!.id,
-        after_data: updatedReceipt,
-        notes: validatedData.allocated_to_work_order_id
-          ? `Allocated to work order ${validatedData.allocated_to_work_order_id}`
-          : `Allocated to overhead bucket: ${validatedData.allocated_overhead_bucket}`,
-      };
-
-      await supabase.from('audit_logs').insert(auditEntry);
+        before_data: currentReceipt as unknown as Record<string, unknown>,
+        after_data: {
+          ...(updatedReceipt as unknown as Record<string, unknown>),
+          cost_entries: createdEntries,
+        },
+      });
 
       res.json(successResponse(updatedReceipt));
     } catch (error) {

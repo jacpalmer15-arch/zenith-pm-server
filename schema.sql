@@ -899,6 +899,8 @@ CREATE TABLE IF NOT EXISTS "public"."receipts" (
     "is_allocated" boolean DEFAULT false NOT NULL,
     "allocated_to_work_order_id" "uuid",
     "allocated_overhead_bucket" "text",
+    "qb_source_entity" "text",
+    "qb_source_id" "text",
     "created_by" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
@@ -909,6 +911,29 @@ ALTER TABLE "public"."receipts" OWNER TO "postgres";
 
 
 COMMENT ON TABLE "public"."receipts" IS 'Vendor receipts and their allocation to work orders or overhead buckets';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."cost_entries" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "receipt_id" "uuid",
+    "bucket" "text" NOT NULL,
+    "origin" "text" NOT NULL,
+    "qty" numeric(12,4) NOT NULL,
+    "unit_cost" numeric(12,2) NOT NULL,
+    "total_cost" numeric(12,2) NOT NULL,
+    "occurred_at" timestamp with time zone NOT NULL,
+    "work_order_id" "uuid",
+    "part_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."cost_entries" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."cost_entries" IS 'Cost entries from receipt allocation to work orders or overhead buckets';
 
 
 
@@ -1122,6 +1147,11 @@ ALTER TABLE ONLY "public"."cost_codes"
 
 ALTER TABLE ONLY "public"."cost_codes"
     ADD CONSTRAINT "cost_codes_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."cost_entries"
+    ADD CONSTRAINT "cost_entries_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1434,6 +1464,22 @@ CREATE INDEX "idx_receipts_work_order" ON "public"."receipts" USING "btree" ("al
 
 
 
+CREATE INDEX "idx_cost_entries_receipt" ON "public"."cost_entries" USING "btree" ("receipt_id");
+
+
+
+CREATE INDEX "idx_cost_entries_work_order" ON "public"."cost_entries" USING "btree" ("work_order_id");
+
+
+
+CREATE INDEX "idx_cost_entries_occurred_at" ON "public"."cost_entries" USING "btree" ("occurred_at");
+
+
+
+CREATE INDEX "idx_cost_entries_bucket" ON "public"."cost_entries" USING "btree" ("bucket");
+
+
+
 CREATE INDEX "idx_schedule_tech_start" ON "public"."work_order_schedule" USING "btree" ("tech_user_id", "start_at");
 
 
@@ -1511,6 +1557,10 @@ CREATE OR REPLACE TRIGGER "equipment_usage_updated_at_trigger" BEFORE UPDATE ON 
 
 
 CREATE OR REPLACE TRIGGER "receipts_updated_at_trigger" BEFORE UPDATE ON "public"."receipts" FOR EACH ROW EXECUTE FUNCTION "public"."update_receipts_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "cost_entries_updated_at_trigger" BEFORE UPDATE ON "public"."cost_entries" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
 
@@ -1746,6 +1796,21 @@ ALTER TABLE ONLY "public"."receipts"
 
 
 
+ALTER TABLE ONLY "public"."cost_entries"
+    ADD CONSTRAINT "cost_entries_receipt_id_fkey" FOREIGN KEY ("receipt_id") REFERENCES "public"."receipts"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."cost_entries"
+    ADD CONSTRAINT "cost_entries_work_order_id_fkey" FOREIGN KEY ("work_order_id") REFERENCES "public"."work_orders"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."cost_entries"
+    ADD CONSTRAINT "cost_entries_part_id_fkey" FOREIGN KEY ("part_id") REFERENCES "public"."parts"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."work_order_schedule"
     ADD CONSTRAINT "work_order_schedule_tech_user_id_fkey" FOREIGN KEY ("tech_user_id") REFERENCES "public"."employees"("id");
 
@@ -1833,6 +1898,10 @@ CREATE POLICY "auth_read_write_cost_codes" ON "public"."cost_codes" TO "authenti
 
 
 
+CREATE POLICY "auth_read_write_cost_entries" ON "public"."cost_entries" TO "authenticated" USING (true) WITH CHECK (true);
+
+
+
 CREATE POLICY "auth_read_write_cost_types" ON "public"."cost_types" TO "authenticated" USING (true) WITH CHECK (true);
 
 
@@ -1894,6 +1963,9 @@ CREATE POLICY "auth_read_write_tax_rules" ON "public"."tax_rules" TO "authentica
 
 
 ALTER TABLE "public"."cost_codes" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."cost_entries" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."cost_types" ENABLE ROW LEVEL SECURITY;
@@ -2050,6 +2122,12 @@ GRANT ALL ON TABLE "public"."audit_logs" TO "service_role";
 GRANT ALL ON TABLE "public"."cost_codes" TO "anon";
 GRANT ALL ON TABLE "public"."cost_codes" TO "authenticated";
 GRANT ALL ON TABLE "public"."cost_codes" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."cost_entries" TO "anon";
+GRANT ALL ON TABLE "public"."cost_entries" TO "authenticated";
+GRANT ALL ON TABLE "public"."cost_entries" TO "service_role";
 
 
 

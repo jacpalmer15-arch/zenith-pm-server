@@ -230,6 +230,8 @@ export interface Receipt {
   is_allocated: boolean;
   allocated_to_work_order_id: string | null;
   allocated_overhead_bucket: string | null;
+  qb_source_entity: string | null;
+  qb_source_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
