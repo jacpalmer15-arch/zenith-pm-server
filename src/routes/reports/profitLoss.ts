@@ -76,7 +76,7 @@ router.get(
         // Get costs for all projects
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         const projectIds = projects.map((p) => p.id);
-         
+
         costQuery = costQuery.in('project_id', projectIds);
       }
 
@@ -131,7 +131,7 @@ router.get(
           base_contract_amount: Number(project.base_contract_amount),
           change_order_amount: Number(project.change_order_amount),
            
-          total_contract: contractAmount,
+          total_contract: contractAmount, // Alias for contract_amount (base + change orders)
           total_cost: totalCost,
           invoiced_amount: invoicedAmount,
           paid_amount: paidAmount,
