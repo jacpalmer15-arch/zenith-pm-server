@@ -14,6 +14,34 @@ import { randomUUID } from 'crypto';
 const router = Router();
 
 /**
+ * Helper function to safely extract file extension from MIME type
+ */
+function getFileExtensionFromMimeType(mimeType: string): string {
+  const extensionMap: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'application/pdf': '.pdf',
+    'application/msword': '.doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.ms-excel': '.xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    'text/plain': '.txt',
+    'text/csv': '.csv',
+  };
+  return extensionMap[mimeType] || '';
+}
+
+/**
+ * Helper function to sanitize filename for headers
+ */
+function sanitizeFilename(filename: string): string {
+  // Remove any characters that could cause header injection or path traversal
+  return filename.replace(/[^\w\s.-]/g, '_').replace(/\s+/g, '_');
+}
+
+/**
  * POST /api/files
  * Upload a file with metadata
  * TECH role: limited access based on entity type
@@ -38,7 +66,8 @@ router.post(
       const metadata = fileUploadSchema.parse(req.body);
 
       // Check role-based permissions
-      // TECH can only upload files for projects (read-only) and quotes
+      // TECH role cannot upload files to projects (read-only access)
+      // OFFICE/ADMIN can upload to all entity types
       if (req.employee!.role === 'TECH' && metadata.entity_type === 'project') {
         res.status(403).json(
           errorResponse('FORBIDDEN', 'TECH role cannot upload files to projects')
@@ -68,9 +97,9 @@ router.post(
         }
       }
 
-      // Generate unique file name
-      const fileExt = req.file.originalname.split('.').pop() || '';
-      const uniqueFileName = `${randomUUID()}${fileExt ? '.' + fileExt : ''}`;
+      // Generate unique file name using MIME type for extension
+      const fileExt = getFileExtensionFromMimeType(req.file.mimetype);
+      const uniqueFileName = `${randomUUID()}${fileExt}`;
 
       // Upload file to storage
       const storage = getStorageProvider();
@@ -111,7 +140,7 @@ router.post(
       res.status(201).json(
         successResponse({
           ...fileRecord,
-          original_name: req.file.originalname,
+          original_name: sanitizeFilename(req.file.originalname),
           size_bytes: req.file.size,
         })
       );
@@ -246,8 +275,10 @@ router.get(
       }
 
       // Otherwise, stream the file
+      // Use sanitized storage_path as filename since we don't store original filename
+      const safeFilename = sanitizeFilename(fileRecord.storage_path);
       res.setHeader('Content-Type', fileRecord.mime_type || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileRecord.storage_path}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
       
       fileOrUrl.pipe(res);
     } catch (error) {
@@ -441,9 +472,9 @@ router.post(
         return;
       }
 
-      // Generate unique file name
-      const fileExt = req.file.originalname.split('.').pop() || '';
-      const uniqueFileName = `${randomUUID()}${fileExt ? '.' + fileExt : ''}`;
+      // Generate unique file name using MIME type for extension
+      const fileExt = getFileExtensionFromMimeType(req.file.mimetype);
+      const uniqueFileName = `${randomUUID()}${fileExt}`;
 
       // Upload file to storage
       const storage = getStorageProvider();
@@ -484,7 +515,7 @@ router.post(
       res.status(201).json(
         successResponse({
           ...fileRecord,
-          original_name: req.file.originalname,
+          original_name: sanitizeFilename(req.file.originalname),
           size_bytes: req.file.size,
         })
       );
