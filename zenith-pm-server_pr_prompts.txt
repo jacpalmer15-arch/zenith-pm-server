@@ -1,0 +1,446 @@
+Zenith PM Server — PR-by-PR GitHub Copilot Prompt Pack
+Target repo: zenith-pm-server
+Reference repo (read-only): zenith-project-management web app (contains schema + UI expectations)
+
+Global rules (apply to EVERY PR)
+- Express + TypeScript. Must be runnable locally AND deployable on Vercel serverless (catch-all).
+- DB: Supabase Postgres. Auth: Supabase JWT (Bearer).
+- Validation: Zod for every request body + query params.
+- Centralized error handler. No stack traces leaked.
+- Structured logs with request id / correlation id.
+- Consistent response envelope. Use one shared type.
+- Rate limiting is serverless-friendly (lightweight).
+- DO NOT invent schema. Before implementing any route or DB write, locate the table + columns in:
+  - “Zenith Project Managemtn SQL.txt” (schema), plus /migrations.
+  Cite table + columns in PR description comments / doc blocks.
+- If a required table is missing (webhook_events, job uniqueness), add a minimal migration ONLY after confirming it doesn’t exist.
+- Every PR must include:
+  1) Title
+  2) Acceptance criteria (testable)
+  3) File changes
+  4) How to run locally
+  5) Postman test steps (exact calls)
+  6) Expected responses
+
+Response envelope (define in PR-001 and keep forever)
+{
+  "ok": true|false,
+  "data": <object|null>,
+  "error": { "code": string, "message": string, "details"?: any } | null,
+  "meta"?: { ... }
+}
+
+======================================================================
+PR-001 — Bootstrap: Express+TS, Vercel entry, config, health, lint/test
+======================================================================
+
+Copilot Prompt:
+Create PR-001 in zenith-pm-server: bootstrap a production-grade Express + TypeScript API that runs locally and on Vercel serverless.
+
+Requirements:
+- Repo scaffolding:
+  - TypeScript config, path aliases if needed
+  - eslint + prettier (or biome) with sensible defaults
+  - dev scripts (ts-node-dev or tsx) and build scripts
+  - basic unit test runner (vitest or jest). Keep it minimal.
+- Express app:
+  - app factory in src/app.ts
+  - server entry for local dev in src/server.ts
+  - Vercel handler entry (catch-all) in api/index.ts (or api/[...all].ts) that imports app and handles requests
+- Config:
+  - src/config/env.ts reads env vars with validation (Zod)
+  - include: NODE_ENV, PORT (local), SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (server-only), WORKER_SECRET, APP_REPORT_WEBHOOK_SECRET, LOG_LEVEL
+- Middleware:
+  - request id + correlation id (X-Request-Id; generate if missing)
+  - JSON body limit (e.g., 1mb for now)
+  - security headers (helmet) and sane CORS default (lock down later)
+  - structured request logging (pino preferred)
+- Routes:
+  - GET /health (no auth) -> {ok:true,data:{status:'up',version,env}}
+  - GET /version (no auth) -> version + git sha if available
+- Error handling:
+  - 404 handler
+  - centralized error handler returning response envelope
+- Docs:
+  - README with local run + env template
+  - /docs/postman_notes.md with how to call /health
+- Acceptance criteria:
+  - npm run dev starts server locally
+  - GET /health returns 200 with envelope
+  - Build succeeds (npm run build)
+  - Vercel handler compiles
+
+Postman tests:
+- GET http://localhost:<PORT>/health
+- GET http://localhost:<PORT>/version
+
+Expected responses:
+- 200 with envelope, ok:true
+
+======================================================================
+PR-002 — Auth: Supabase JWT verify + employee load + RBAC scaffold
+======================================================================
+
+Copilot Prompt:
+Create PR-002 adding authentication + authorization scaffolding.
+
+Implementation requirements:
+- Middleware:
+  - requireAuth: verifies Bearer token using Supabase JWKS (preferred). If JWKS is non-trivial, implement a pragmatic verifier that works in server env; document it.
+  - attach req.auth = { userId, email?, claims }
+- Employee loading:
+  - Implement middleware requireEmployee that queries public.employees by employees.id = auth user id.
+  - Enforce employees.is_active = true.
+  - Attach req.employee = { id, role, display_name, email, ... }.
+- RBAC helpers:
+  - requireRole(roles: Role[]) middleware.
+  - role enum mapping: TECH / OFFICE / ADMIN.
+- Routes:
+  - GET /api/me (auth required) returns employee + claims
+- Update README with auth testing steps.
+- Acceptance criteria:
+  - Missing/invalid token -> 401 envelope
+  - No employee record or inactive -> 403 envelope
+  - /api/me works for valid user with employee record
+
+Postman tests:
+- GET /api/me with Authorization: Bearer <JWT>
+
+Expected:
+- 200 ok:true data:{employee,...}
+
+======================================================================
+PR-003 — DB layer: Supabase server client + query helpers + pagination
+======================================================================
+
+Copilot Prompt:
+Create PR-003 implementing a clean DB access layer using supabase-js (server client) or a Postgres client, optimized for server-side use.
+
+Requirements:
+- Create src/db/client.ts that exports a function to create a server supabase client using SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.
+- Create lightweight query utilities:
+  - parsePagination(query): limit/offset with bounds
+  - parseSort(query): allowlist sort fields per resource
+  - optional filters helper
+- Ensure DB errors are translated to consistent API errors (e.g., unique violation -> 409).
+- No resource routes beyond small internal checks.
+- Acceptance:
+  - /api/me still works and uses db layer
+  - pagination helper unit tests exist
+
+======================================================================
+PR-004 — Customers + Locations CRUD
+======================================================================
+
+Copilot Prompt:
+Create PR-004 implementing CRUD for customers and locations grounded in schema.
+
+Schema grounding required (must cite):
+- public.customers (including qb_customer_id)
+- public.locations (customer_id + address fields)
+
+Endpoints:
+Customers:
+- GET /api/customers?limit&offset&search&sort
+- POST /api/customers
+- GET /api/customers/:id
+- PATCH /api/customers/:id
+Locations:
+- GET /api/customers/:customerId/locations
+- POST /api/customers/:customerId/locations
+- GET /api/locations/:id
+- PATCH /api/locations/:id
+
+Security:
+- TECH: read-only limited if needed; default deny for now unless explicitly allowed
+- OFFICE/ADMIN: full CRUD
+
+Validation:
+- Zod schemas for create/update
+- Basic search by name/email/phone if present in schema
+
+Acceptance:
+- Postman can create customer + location and retrieve them
+
+======================================================================
+PR-005 — Projects CRUD
+======================================================================
+
+Copilot Prompt:
+Create PR-005 for public.projects CRUD.
+
+Schema grounding required:
+- public.projects (customer_id, status, contract_amount/tax/total)
+
+Endpoints:
+- GET /api/projects (filters: customer_id, status)
+- POST /api/projects
+- GET /api/projects/:id
+- PATCH /api/projects/:id
+
+Security:
+- OFFICE/ADMIN CRUD
+- TECH read-only (optional) or deny
+
+Acceptance:
+- Create project, update contract fields, list by customer_id
+
+======================================================================
+PR-006 — Work Orders CRUD + Schedule
+======================================================================
+
+Copilot Prompt:
+Create PR-006 for work_orders and work_order_schedule routes.
+
+Schema grounding:
+- public.work_orders (customer_id, location_id, status enum work_status, priority, summary/description, requested windows, assigned_to, timestamps, qb_subcustomer_id)
+- public.work_order_schedule (work_order_id, tech_user_id, start_at, end_at, status)
+
+Endpoints:
+Work Orders:
+- GET /api/work-orders (filters: customer_id, location_id, status, assigned_to)
+- POST /api/work-orders
+- GET /api/work-orders/:id
+- PATCH /api/work-orders/:id
+Schedule:
+- GET /api/work-orders/:id/schedule
+- POST /api/work-orders/:id/schedule (create slot)
+- PATCH /api/schedule/:id (update slot)
+- DELETE /api/schedule/:id (only if schema supports; else PATCH status)
+
+Security rules:
+- TECH can only:
+  - view work orders assigned_to=self OR scheduled for self
+  - create/update schedule entries only for tech_user_id=self
+- OFFICE/ADMIN can manage all
+
+Acceptance:
+- Postman: create work order, assign to tech, create schedule for tech, TECH JWT can see only their records.
+
+======================================================================
+PR-007 — Time Entries CRUD + enqueue labor cost posting job
+======================================================================
+
+Copilot Prompt:
+Create PR-007 for work_order_time_entries routes AND enqueue a labor-cost posting job into sync_events.
+
+Schema grounding:
+- public.work_order_time_entries (work_order_id, tech_user_id, started_at, ended_at, hours, billable_hours, labor_rate, notes, qb_timeactivity_id)
+- public.settings (default_labor_rate)
+- public.sync_events (job queue abstraction)
+- public.cost_entries (for later worker processing)
+
+Endpoints:
+- GET /api/work-orders/:id/time-entries
+- POST /api/work-orders/:id/time-entries
+- PATCH /api/time-entries/:id
+
+Rules:
+- Default labor_rate from settings.default_labor_rate if not provided.
+- TECH can only create/update their own (tech_user_id=self).
+- When a time entry is created or materially changed, enqueue a sync_events job:
+  - entity_type: choose a safe value (if qb_entity enum cannot represent this, store in payload; do not break enum)
+  - action: "time_entry_cost_post"
+  - payload: { time_entry_id }
+  - idempotency_key: "time_entry_cost_post:<time_entry_id>:<updated_at or hash>"
+  Ensure idempotency behavior (no dupes).
+
+Acceptance:
+- Creating a time entry creates a sync_events row.
+
+======================================================================
+PR-008 — Quotes + Quote Lines CRUD + Send/Accept workflow + Audit
+======================================================================
+
+Copilot Prompt:
+Create PR-008 implementing quotes + quote_lines with workflow endpoints send and accept.
+
+Schema grounding:
+- public.quotes (quote_no, customer_id, project_id?, work_order_id?, quote_type, status quote_status, subtotal/tax/total, sent_at, accepted_at, rejected_at)
+- public.quote_lines (quote_id, line_no, line_type, description, qty, unit_price, tax_rule_id, cost_code_id, cost_type_id, part_id)
+- public.projects (contract fields)
+- public.audit_logs
+
+Endpoints:
+- GET /api/quotes (filters: customer_id, project_id, work_order_id, status)
+- POST /api/quotes
+- GET /api/quotes/:id
+- PATCH /api/quotes/:id
+- GET /api/quotes/:id/lines
+- POST /api/quotes/:id/lines
+- PATCH /api/quote-lines/:id
+- DELETE /api/quote-lines/:id (only if safe)
+
+Workflow:
+- POST /api/quotes/:id/send -> set sent_at + status transition
+- POST /api/quotes/:id/accept
+  - set accepted_at + status=ACCEPTED
+  - if quotes.project_id not null: update projects.contract_amount/tax/total from quote
+  - create audit_logs entry (actor_user_id = employee.id, action='QUOTE_ACCEPTED', before/after snapshots)
+
+Acceptance:
+- Accepting quote updates project totals when project_id present.
+
+======================================================================
+PR-009 — Receipts CRUD + Allocation -> cost_entries
+======================================================================
+
+Copilot Prompt:
+Create PR-009 implementing receipts and allocation.
+
+Schema grounding:
+- public.receipts (storage_path, total_amount, is_allocated, allocated_to_work_order_id, allocated_overhead_bucket, qb_source_entity/qb_source_id)
+- public.cost_entries (receipt_id, bucket, origin, qty/unit_cost/total_cost, occurred_at, work_order_id nullable)
+- public.audit_logs
+
+Endpoints:
+- GET /api/receipts (filters: is_allocated, work_order_id)
+- POST /api/receipts (metadata; require storage_path + total_amount)
+- GET /api/receipts/:id
+- POST /api/receipts/:id/allocate
+  Payload: either { allocated_to_work_order_id, lines:[{bucket, origin, qty, unit_cost, total_cost, occurred_at, part_id?}]} OR overhead allocation bucket.
+  - Mark receipt allocated
+  - Create cost_entries rows linked to receipt_id
+  - Audit log
+
+Acceptance:
+- Allocation creates cost_entries tied to receipt_id and updates receipt flags.
+
+======================================================================
+PR-010 — Parts + Inventory Ledger
+======================================================================
+
+Copilot Prompt:
+Create PR-010 implementing read + controlled write endpoints for parts and inventory ledger.
+
+Schema grounding:
+- public.part_categories
+- public.parts
+- public.inventory_ledger
+
+Endpoints:
+- GET /api/parts (filters: category_id, search)
+- POST /api/parts (OFFICE/ADMIN)
+- PATCH /api/parts/:id
+- GET /api/inventory/ledger?part_id&limit&offset
+- POST /api/inventory/adjustments (writes inventory_ledger entry; do NOT directly mutate quantities if schema uses ledger pattern)
+
+Security:
+- TECH read parts; deny adjustments
+- OFFICE/ADMIN full
+
+Acceptance:
+- Postman can create part and post a ledger adjustment.
+
+======================================================================
+PR-011 — Files metadata + storage integration stub
+======================================================================
+
+Copilot Prompt:
+Create PR-011 implementing files table CRUD (metadata only) and a storage stub.
+
+Schema grounding:
+- public.files (linkable to customer/project/quote/work_order/receipt; storage_path, mime_type, size_bytes)
+
+Endpoints:
+- POST /api/files (metadata record)
+- GET /api/files?linked filters
+- GET /api/files/:id
+
+Optional:
+- Provide a placeholder for Supabase Storage signed URL generation (feature flag), but do not overbuild.
+
+Acceptance:
+- Can create and retrieve file metadata.
+
+======================================================================
+PR-012 — Webhook ingestion: /webhooks/app-report (+ persistence + dedupe)
+======================================================================
+
+Copilot Prompt:
+Create PR-012 implementing webhook ingestion for app-report.
+
+Schema grounding:
+- Confirm whether a webhook events table exists. If NOT, add migration for:
+  public.webhook_events(id uuid pk, provider text, event_id text unique?, received_at timestamptz, payload jsonb, processed boolean default false, processed_at timestamptz)
+- Implement POST /webhooks/app-report:
+  - Verify HMAC SHA256 signature using APP_REPORT_WEBHOOK_SECRET
+  - Dedupe by event_id (return 200 if already received)
+  - Persist payload to webhook_events
+  - Enqueue sync_events job with idempotency_key "webhook:app-report:<event_id>"
+
+Acceptance:
+- Postman can send a signed webhook request and see webhook_events + sync_events rows.
+
+======================================================================
+PR-013 — Worker runner: POST /internal/worker/run + processors
+======================================================================
+
+Copilot Prompt:
+Create PR-013 implementing the worker runner and initial job processors.
+
+Requirements:
+- Endpoint POST /internal/worker/run protected by X-Worker-Secret == WORKER_SECRET
+- Pull eligible PENDING sync_events ordered by created_at and next_attempt_at
+- Locking / concurrency safety (use SKIP LOCKED if using SQL; if using supabase-js, implement a safe claim strategy)
+- Process known actions:
+  1) "time_entry_cost_post": upsert cost_entries by time_entry_id (idempotent)
+  2) "webhook:app-report:*" or action based: store processed_at on webhook_events and any required downstream
+- Update sync_events status transitions:
+  - PENDING -> RUNNING -> SUCCEEDED
+  - On failure: increment attempts, set last_error, set next_attempt_at with exponential backoff, status=PENDING (or FAILED after max)
+- Add minimal metrics logs (counts processed).
+
+Acceptance:
+- Running worker endpoint processes queued jobs and updates sync_events.
+
+======================================================================
+PR-014 — OpenAPI spec for all routes
+======================================================================
+
+Copilot Prompt:
+Create PR-014 adding OpenAPI generation or maintained spec.
+
+Requirements:
+- Expose GET /openapi.json (auth optional or protected; choose and document)
+- Ensure spec matches current routes, request/response schemas.
+- If using zod-to-openapi, implement systematically.
+
+Acceptance:
+- openapi.json validates and includes all /api routes + /webhooks + /internal/worker/run.
+
+======================================================================
+PR-015 — Hardening: rate limits, CORS, security headers, request size limits
+======================================================================
+
+Copilot Prompt:
+Create PR-015 hardening pass.
+
+Requirements:
+- Rate limiting middleware (serverless friendly; simple in-memory ok for now; document production option)
+- Tighten CORS allowlist via env
+- Helmet configuration
+- Request body size limits per route category (webhooks maybe larger with separate limit)
+- Standardize error codes
+
+Acceptance:
+- Abuse protections applied without breaking existing Postman tests.
+
+======================================================================
+PR-016 — Optional: RLS policy SQL scripts (mirror API rules)
+======================================================================
+
+Copilot Prompt:
+Create PR-016 producing SQL scripts (NOT applied automatically) to enable Supabase RLS aligning with API rules.
+
+Rules:
+- Employees: authenticated users can read own employee row; ADMIN can read all (if you can express in RLS)
+- TECH can read assigned work_orders and their own schedule/time_entries
+- OFFICE/ADMIN broader
+- Include policies for customers/projects/quotes only if you can express safely
+- Provide scripts in /supabase/rls_policies.sql plus documentation.
+
+Acceptance:
+- Scripts are clear, reviewable, and do not brick access.
+
+END OF PROMPT PACK
