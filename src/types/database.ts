@@ -159,6 +159,26 @@ export interface WorkOrderTimeEntry {
 }
 
 /**
+ * Webhook event status type
+ */
+export type WebhookEventStatus = 'PENDING' | 'PROCESSED' | 'FAILED';
+
+/**
+ * Webhook event database record type
+ */
+export interface WebhookEvent {
+  id: string;
+  source: string;
+  event_type: string;
+  payload: Record<string, unknown>;
+  status: WebhookEventStatus;
+  processed_at: string | null;
+  error_message: string | null;
+  idempotency_key: string | null;
+  created_at: string;
+}
+
+/**
  * Quote type enum
  */
 export type QuoteType = 'BASE' | 'CHANGE_ORDER';

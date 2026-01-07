@@ -816,6 +816,22 @@ CREATE TABLE IF NOT EXISTS "public"."qbo_webhook_events" (
 ALTER TABLE "public"."qbo_webhook_events" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."webhook_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "source" "text" NOT NULL,
+    "event_type" "text" NOT NULL,
+    "payload" "jsonb" NOT NULL,
+    "status" "text" DEFAULT 'PENDING'::"text" NOT NULL,
+    "processed_at" timestamp with time zone,
+    "error_message" "text",
+    "idempotency_key" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."webhook_events" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."quote_lines" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "quote_id" "uuid" NOT NULL,
@@ -1280,6 +1296,16 @@ ALTER TABLE ONLY "public"."qbo_webhook_events"
 
 
 
+ALTER TABLE ONLY "public"."webhook_events"
+    ADD CONSTRAINT "webhook_events_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."webhook_events"
+    ADD CONSTRAINT "webhook_events_idempotency_key_key" UNIQUE ("idempotency_key");
+
+
+
 ALTER TABLE ONLY "public"."quote_lines"
     ADD CONSTRAINT "quote_lines_pkey" PRIMARY KEY ("id");
 
@@ -1429,6 +1455,10 @@ CREATE INDEX "idx_qbo_entity_map_qbo" ON "public"."qbo_entity_map" USING "btree"
 
 
 CREATE INDEX "idx_qbo_webhook_events_status" ON "public"."qbo_webhook_events" USING "btree" ("status", "received_at");
+
+
+
+CREATE INDEX "idx_webhook_events_status" ON "public"."webhook_events" USING "btree" ("status", "created_at");
 
 
 
@@ -2014,6 +2044,9 @@ ALTER TABLE "public"."qbo_entity_map" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."qbo_webhook_events" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."webhook_events" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."quote_lines" ENABLE ROW LEVEL SECURITY;
