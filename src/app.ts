@@ -48,7 +48,15 @@ export function createApp(): Express {
   // Middleware stack
   app.use(helmet()); // Security headers
   app.use(cors()); // CORS with default settings
-  app.use(express.json({ limit: '1mb' })); // JSON body parser with 1MB limit
+  app.use(express.json({ 
+    limit: '1mb',
+    verify: (req: Request, _res: Response, buf: Buffer) => {
+      // Store raw body for webhook signature verification (app-report only)
+      if (req.path === '/api/webhooks/app-report') {
+        req.rawBody = buf.toString('utf8');
+      }
+    }
+  })); // JSON body parser with 1MB limit
   app.use(requestIdMiddleware); // Request ID and correlation ID
   
   // Simple request logging

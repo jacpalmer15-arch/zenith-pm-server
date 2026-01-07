@@ -5,6 +5,9 @@ declare global {
     interface Request {
       auth?: AuthPayload;
       employee?: Employee;
+      rawBody?: string;
+      requestId: string;
+      correlationId: string;
     }
   }
 }
