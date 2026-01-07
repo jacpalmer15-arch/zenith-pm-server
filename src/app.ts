@@ -29,6 +29,8 @@ import adminJobsRouter from '@/routes/admin/jobs.js';
 import jobCostingRouter from '@/routes/reports/jobCosting.js';
 import profitLossRouter from '@/routes/reports/profitLoss.js';
 import jobCostDetailRouter from '@/routes/reports/jobCostDetail.js';
+import dashboardRouter from '@/routes/dashboard.js';
+import reportsRouter from '@/routes/reports.js';
 import filesRouter from '@/routes/files.js';
 import appRouter from '@/routes/app.js';
 import webhooksRouter from '@/routes/webhooks.js';
@@ -99,6 +101,8 @@ export function createApp(): Express {
   app.use(purchaseOrdersRouter);
   app.use(purchaseOrderLinesRouter);
   app.use(adminJobsRouter);
+  app.use(dashboardRouter);
+  app.use(reportsRouter);
   app.use(jobCostingRouter);
   app.use(profitLossRouter);
   app.use(jobCostDetailRouter);

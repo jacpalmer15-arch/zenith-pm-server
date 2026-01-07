@@ -39,8 +39,51 @@ export const jobCostDetailQuerySchema = z
   });
 
 /**
+ * Common date range schema with validation
+ */
+export const dateRangeSchema = z.object({
+  date_from: z.string().date().optional(),
+  date_to: z.string().date().optional(),
+}).refine(data => {
+  if (data.date_from && data.date_to) {
+    return new Date(data.date_to) >= new Date(data.date_from);
+  }
+  return true;
+}, { message: 'date_to must be after date_from' });
+
+/**
+ * Period schema for time-based grouping
+ */
+export const periodSchema = z.enum(['week', 'month', 'quarter', 'year']);
+
+/**
+ * Group by schema for aggregation
+ */
+export const groupBySchema = z.enum(['day', 'week', 'month']);
+
+/**
+ * Dashboard query schema
+ */
+export const dashboardQuerySchema = dateRangeSchema.extend({
+  period: periodSchema.optional(),
+});
+
+/**
+ * Report query schema with common filters
+ */
+export const reportQuerySchema = dateRangeSchema.extend({
+  customer_id: z.string().uuid().optional(),
+  tech_id: z.string().uuid().optional(),
+  status: z.string().optional(),
+  group_by: groupBySchema.optional(),
+});
+
+/**
  * TypeScript types inferred from schemas
  */
 export type JobCostingQuery = z.infer<typeof jobCostingQuerySchema>;
 export type ProfitLossQuery = z.infer<typeof profitLossQuerySchema>;
 export type JobCostDetailQuery = z.infer<typeof jobCostDetailQuerySchema>;
+export type DateRangeQuery = z.infer<typeof dateRangeSchema>;
+export type DashboardQuery = z.infer<typeof dashboardQuerySchema>;
+export type ReportQuery = z.infer<typeof reportQuerySchema>;
