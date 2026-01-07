@@ -375,10 +375,11 @@ router.post(
       
       if (isWorkOrderAllocation) {
         // Validate work order exists
+        const workOrderId = (validatedData as { allocated_to_work_order_id: string }).allocated_to_work_order_id;
         const { data: workOrder, error: woError } = await supabase
           .from('work_orders')
           .select('id')
-          .eq('id', validatedData.allocated_to_work_order_id!)
+          .eq('id', workOrderId)
           .single();
 
         if (woError || !workOrder) {
@@ -393,7 +394,17 @@ router.post(
       }
 
       // Create cost_entries for each line
-      const costEntries = validatedData.lines!.map((line) => ({
+      const lines = (validatedData as { lines: Array<{
+        bucket: string;
+        origin: string;
+        qty: number;
+        unit_cost: number;
+        total_cost: number;
+        occurred_at: string;
+        part_id?: string;
+      }> }).lines;
+      
+      const costEntries = lines.map((line) => ({
         receipt_id: id,
         bucket: line.bucket,
         origin: line.origin,
@@ -401,7 +412,9 @@ router.post(
         unit_cost: line.unit_cost,
         total_cost: line.total_cost,
         occurred_at: line.occurred_at,
-        work_order_id: isWorkOrderAllocation ? validatedData.allocated_to_work_order_id! : null,
+        work_order_id: isWorkOrderAllocation 
+          ? (validatedData as { allocated_to_work_order_id: string }).allocated_to_work_order_id
+          : null,
         part_id: line.part_id || null,
       }));
 
@@ -422,11 +435,11 @@ router.post(
       const updateData: Partial<Receipt> = {
         is_allocated: true,
         allocated_to_work_order_id: isWorkOrderAllocation 
-          ? validatedData.allocated_to_work_order_id! 
+          ? (validatedData as { allocated_to_work_order_id: string }).allocated_to_work_order_id
           : null,
         allocated_overhead_bucket: isWorkOrderAllocation 
           ? null 
-          : validatedData.allocated_overhead_bucket!,
+          : (validatedData as { allocated_overhead_bucket: string }).allocated_overhead_bucket,
       };
 
       const { data: updatedReceipt, error: updateError } = await supabase
@@ -458,7 +471,7 @@ router.post(
         actor_user_id: req.employee!.id,
         before_data: currentReceipt as unknown as Record<string, unknown>,
         after_data: {
-          ...updatedReceipt as unknown as Record<string, unknown>,
+          ...(updatedReceipt as unknown as Record<string, unknown>),
           cost_entries: createdEntries,
         },
       });
