@@ -568,6 +568,7 @@ router.post(
         .update({
           status: 'PAID',
           paid_at: new Date().toISOString(),
+          paid_amount: invoiceData.total_amount,
           updated_by: req.employee!.id,
         })
         .eq('id', id)
