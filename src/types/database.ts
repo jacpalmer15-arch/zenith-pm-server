@@ -459,3 +459,69 @@ export interface File {
   created_by: string | null;
   created_at: string;
 }
+
+/**
+ * Cost type database record type
+ */
+export interface CostType {
+  id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Cost code database record type
+ */
+export interface CostCode {
+  id: string;
+  code: string;
+  name: string;
+  cost_type_id: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Tax rule database record type
+ */
+export interface TaxRule {
+  id: string;
+  name: string;
+  rate: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+}
+
+/**
+ * Settings database record type (single-row configuration table)
+ */
+export interface Settings {
+  id: string;
+  company_name: string;
+  company_phone: string | null;
+  company_email: string | null;
+  company_address: string | null;
+  default_quote_terms: string;
+  default_tax_rule_id: string | null;
+  customer_number_prefix: string;
+  next_customer_seq: number;
+  project_number_prefix: string;
+  next_project_seq: number;
+  quote_number_prefix: string;
+  next_quote_seq: number;
+  work_order_number_prefix: string;
+  next_work_order_seq: number;
+  change_order_number_prefix: string;
+  next_change_order_seq: number;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+  default_labor_rate: number;
+}

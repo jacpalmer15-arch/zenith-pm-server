@@ -1,77 +1,44 @@
 import { Router, Request, Response } from 'express';
-import { createServerClient, parsePagination, parseSort, translateDbError } from '@/db/index.js';
+import { createServerClient, translateDbError } from '@/db/index.js';
 import { successResponse, errorResponse } from '@/types/response.js';
 import { requireAuth } from '@/middleware/requireAuth.js';
 import { requireEmployee } from '@/middleware/requireEmployee.js';
 import { requireRole } from '@/middleware/requireRole.js';
-import { createPartSchema, updatePartSchema } from '@/validations/part.js';
-import { Part } from '@/types/database.js';
+import { createCostTypeSchema, updateCostTypeSchema } from '@/validations/costType.js';
+import { CostType, CostCode } from '@/types/database.js';
 import { ZodError } from 'zod';
 
 const router = Router();
 
 /**
- * GET /api/parts
- * List parts with pagination, search, and filters
+ * Cost type with nested cost codes
+ */
+interface CostTypeWithCodes extends CostType {
+  cost_codes: CostCode[];
+}
+
+/**
+ * GET /api/cost-types
+ * List cost types with filters
  * TECH role: read-only (allowed)
- * OFFICE/ADMIN: full access (allowed)
+ * OFFICE: read-only (allowed)
+ * ADMIN: full access (allowed)
  */
 router.get(
-  '/api/parts',
+  '/api/cost-types',
   requireAuth,
   requireEmployee,
-  async (req: Request, res: Response): Promise<void> => {
+  async (_req: Request, res: Response): Promise<void> => {
     try {
       const supabase = createServerClient();
       
-      // Parse pagination params
-      const pagination = parsePagination(req.query);
-      
-      // Parse sort params
-      const sort = parseSort(
-        req.query,
-        ['name', 'sku', 'sell_price', 'avg_cost', 'created_at', 'updated_at'],
-        'created_at',
-        'desc'
-      );
-      
-      // Parse search param
-      const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
-      
-      // Parse filter params
-      const categoryId = typeof req.query.category_id === 'string' ? req.query.category_id : undefined;
-      const isActive = req.query.is_active === 'true' ? true : req.query.is_active === 'false' ? false : undefined;
-      
       // Build query
-      let query = supabase
-        .from('parts')
-        .select('*', { count: 'exact' });
+      const query = supabase
+        .from('cost_types')
+        .select('*')
+        .order('sort_order', { ascending: true });
       
-      // Apply search filter if provided (searches part_no/sku and name)
-      // Note: Supabase PostgREST handles query escaping automatically
-      if (search) {
-        query = query.or(`sku.ilike.%${search}%,name.ilike.%${search}%`);
-      }
-      
-      // Apply category filter
-      if (categoryId) {
-        query = query.eq('category_id', categoryId);
-      }
-      
-      // Apply is_active filter
-      if (isActive !== undefined) {
-        query = query.eq('is_active', isActive);
-      }
-      
-      // Apply sort
-      if (sort) {
-        query = query.order(sort.field, { ascending: sort.direction === 'asc' });
-      }
-      
-      // Apply pagination
-      query = query.range(pagination.offset, pagination.offset + pagination.limit - 1);
-      
-      const { data, error, count } = await query;
+      const { data, error } = await query;
       
       if (error) {
         const apiError = translateDbError(error);
@@ -81,50 +48,41 @@ router.get(
         return;
       }
       
-      res.json(
-        successResponse(data ?? [], {
-          pagination: {
-            limit: pagination.limit,
-            offset: pagination.offset,
-            total: count ?? 0,
-          },
-        })
-      );
+      res.json(successResponse(data ?? []));
     } catch (error) {
-      console.error('Error listing parts:', error);
+      console.error('Error listing cost types:', error);
       res.status(500).json(
-        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to list parts')
+        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to list cost types')
       );
     }
   }
 );
 
 /**
- * POST /api/parts
- * Create a new part
+ * POST /api/cost-types
+ * Create a new cost type
  * TECH role: not allowed (403)
- * OFFICE/ADMIN: allowed
+ * OFFICE: not allowed (403)
+ * ADMIN: allowed
  */
 router.post(
-  '/api/parts',
+  '/api/cost-types',
   requireAuth,
   requireEmployee,
-  requireRole(['OFFICE', 'ADMIN']),
+  requireRole(['ADMIN']),
   async (req: Request, res: Response): Promise<void> => {
     try {
       // Validate request body
-      const validatedData = createPartSchema.parse(req.body);
+      const validatedData = createCostTypeSchema.parse(req.body);
       
       const supabase = createServerClient();
       
-      // Insert part
+      // Insert cost type
       const { data, error } = await supabase
-        .from('parts')
-        .insert({
-          ...validatedData,
-        })
+        .from('cost_types')
+        .insert(validatedData)
         .select()
-        .single<Part>();
+        .single<CostType>();
       
       if (error) {
         const apiError = translateDbError(error);
@@ -142,22 +100,23 @@ router.post(
         );
         return;
       }
-      console.error('Error creating part:', error);
+      console.error('Error creating cost type:', error);
       res.status(500).json(
-        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to create part')
+        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to create cost type')
       );
     }
   }
 );
 
 /**
- * GET /api/parts/:id
- * Get a single part by ID
+ * GET /api/cost-types/:id
+ * Get a single cost type by ID (includes nested cost codes)
  * TECH role: read-only (allowed)
- * OFFICE/ADMIN: full access (allowed)
+ * OFFICE: read-only (allowed)
+ * ADMIN: full access (allowed)
  */
 router.get(
-  '/api/parts/:id',
+  '/api/cost-types/:id',
   requireAuth,
   requireEmployee,
   async (req: Request, res: Response): Promise<void> => {
@@ -165,16 +124,20 @@ router.get(
       const { id } = req.params;
       const supabase = createServerClient();
       
+      // Fetch cost type with nested cost codes
       const { data, error } = await supabase
-        .from('parts')
-        .select('*')
+        .from('cost_types')
+        .select(`
+          *,
+          cost_codes (*)
+        `)
         .eq('id', id)
-        .single<Part>();
+        .single<CostTypeWithCodes>();
       
       if (error) {
         if (error.code === 'PGRST116') {
           res.status(404).json(
-            errorResponse('NOT_FOUND', 'Part not found')
+            errorResponse('NOT_FOUND', 'Cost type not found')
           );
           return;
         }
@@ -187,31 +150,32 @@ router.get(
       
       res.json(successResponse(data));
     } catch (error) {
-      console.error('Error fetching part:', error);
+      console.error('Error fetching cost type:', error);
       res.status(500).json(
-        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to fetch part')
+        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to fetch cost type')
       );
     }
   }
 );
 
 /**
- * PATCH /api/parts/:id
- * Update a part
+ * PATCH /api/cost-types/:id
+ * Update a cost type
  * TECH role: not allowed (403)
- * OFFICE/ADMIN: allowed
+ * OFFICE: not allowed (403)
+ * ADMIN: allowed
  */
 router.patch(
-  '/api/parts/:id',
+  '/api/cost-types/:id',
   requireAuth,
   requireEmployee,
-  requireRole(['OFFICE', 'ADMIN']),
+  requireRole(['ADMIN']),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       
       // Validate request body
-      const validatedData = updatePartSchema.parse(req.body);
+      const validatedData = updateCostTypeSchema.parse(req.body);
       
       // Ensure at least one field is being updated
       if (Object.keys(validatedData).length === 0) {
@@ -223,20 +187,18 @@ router.patch(
       
       const supabase = createServerClient();
       
-      // Update part
+      // Update cost type
       const { data, error } = await supabase
-        .from('parts')
-        .update({
-          ...validatedData,
-        })
+        .from('cost_types')
+        .update(validatedData)
         .eq('id', id)
         .select()
-        .single<Part>();
+        .single<CostType>();
       
       if (error) {
         if (error.code === 'PGRST116') {
           res.status(404).json(
-            errorResponse('NOT_FOUND', 'Part not found')
+            errorResponse('NOT_FOUND', 'Cost type not found')
           );
           return;
         }
@@ -255,42 +217,43 @@ router.patch(
         );
         return;
       }
-      console.error('Error updating part:', error);
+      console.error('Error updating cost type:', error);
       res.status(500).json(
-        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update part')
+        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to update cost type')
       );
     }
   }
 );
 
 /**
- * DELETE /api/parts/:id
- * Soft delete a part (set is_active = false)
+ * DELETE /api/cost-types/:id
+ * Delete a cost type (actual delete, not soft delete since table has no is_active)
  * TECH role: not allowed (403)
- * OFFICE/ADMIN: allowed
+ * OFFICE: not allowed (403)
+ * ADMIN: allowed
  */
 router.delete(
-  '/api/parts/:id',
+  '/api/cost-types/:id',
   requireAuth,
   requireEmployee,
-  requireRole(['OFFICE', 'ADMIN']),
+  requireRole(['ADMIN']),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const supabase = createServerClient();
       
-      // Soft delete by setting is_active = false
+      // Delete cost type
       const { data, error } = await supabase
-        .from('parts')
-        .update({ is_active: false })
+        .from('cost_types')
+        .delete()
         .eq('id', id)
         .select()
-        .single<Part>();
+        .single<CostType>();
       
       if (error) {
         if (error.code === 'PGRST116') {
           res.status(404).json(
-            errorResponse('NOT_FOUND', 'Part not found')
+            errorResponse('NOT_FOUND', 'Cost type not found')
           );
           return;
         }
@@ -303,9 +266,9 @@ router.delete(
       
       res.json(successResponse(data));
     } catch (error) {
-      console.error('Error deleting part:', error);
+      console.error('Error deleting cost type:', error);
       res.status(500).json(
-        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to delete part')
+        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to delete cost type')
       );
     }
   }

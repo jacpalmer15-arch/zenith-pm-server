@@ -32,6 +32,10 @@ import jobCostDetailRouter from '@/routes/reports/jobCostDetail.js';
 import filesRouter from '@/routes/files.js';
 import appRouter from '@/routes/app.js';
 import webhooksRouter from '@/routes/webhooks.js';
+import costTypesRouter from '@/routes/costTypes.js';
+import costCodesRouter from '@/routes/costCodes.js';
+import taxRulesRouter from '@/routes/taxRules.js';
+import settingsRouter from '@/routes/settings.js';
 
 export function createApp(): Express {
   const app = express();
@@ -93,6 +97,10 @@ export function createApp(): Express {
   app.use(filesRouter);
   app.use(appRouter);
   app.use(webhooksRouter);
+  app.use(costTypesRouter);
+  app.use(costCodesRouter);
+  app.use(taxRulesRouter);
+  app.use(settingsRouter);
 
   // 404 handler - must come after all routes
   app.use(notFoundHandler);

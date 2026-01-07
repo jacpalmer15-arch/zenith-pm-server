@@ -3,12 +3,12 @@ import request from 'supertest';
 import { createApp } from '../app.js';
 import type { ResponseEnvelope } from '../types/response.js';
 
-describe('Parts Routes', () => {
+describe('Cost Types Routes', () => {
   const app = createApp();
 
-  describe('GET /api/parts', () => {
+  describe('GET /api/cost-types', () => {
     it('should return 401 without Authorization header', async () => {
-      const response = await request(app).get('/api/parts');
+      const response = await request(app).get('/api/cost-types');
 
       expect(response.status).toBe(401);
       const body = response.body as ResponseEnvelope;
@@ -19,7 +19,7 @@ describe('Parts Routes', () => {
 
     it('should return 401 with invalid Bearer token', async () => {
       const response = await request(app)
-        .get('/api/parts')
+        .get('/api/cost-types')
         .set('Authorization', 'Bearer invalid-token');
 
       expect(response.status).toBe(401);
@@ -29,11 +29,11 @@ describe('Parts Routes', () => {
     });
   });
 
-  describe('POST /api/parts', () => {
+  describe('POST /api/cost-types', () => {
     it('should return 401 without Authorization header', async () => {
       const response = await request(app)
-        .post('/api/parts')
-        .send({ name: 'Test Part', uom: 'EA' });
+        .post('/api/cost-types')
+        .send({ name: 'Labor' });
 
       expect(response.status).toBe(401);
       const body = response.body as ResponseEnvelope;
@@ -43,18 +43,18 @@ describe('Parts Routes', () => {
 
     it('should return 401 with invalid Bearer token', async () => {
       const response = await request(app)
-        .post('/api/parts')
+        .post('/api/cost-types')
         .set('Authorization', 'Bearer invalid-token')
-        .send({ name: 'Test Part', uom: 'EA' });
+        .send({ name: 'Labor' });
 
       expect(response.status).toBe(401);
     });
   });
 
-  describe('GET /api/parts/:id', () => {
+  describe('GET /api/cost-types/:id', () => {
     it('should return 401 without Authorization header', async () => {
       const response = await request(app).get(
-        '/api/parts/550e8400-e29b-41d4-a716-446655440000'
+        '/api/cost-types/550e8400-e29b-41d4-a716-446655440000'
       );
 
       expect(response.status).toBe(401);
@@ -64,11 +64,11 @@ describe('Parts Routes', () => {
     });
   });
 
-  describe('PATCH /api/parts/:id', () => {
+  describe('PATCH /api/cost-types/:id', () => {
     it('should return 401 without Authorization header', async () => {
       const response = await request(app)
-        .patch('/api/parts/550e8400-e29b-41d4-a716-446655440000')
-        .send({ name: 'Updated Part' });
+        .patch('/api/cost-types/550e8400-e29b-41d4-a716-446655440000')
+        .send({ name: 'Updated Cost Type' });
 
       expect(response.status).toBe(401);
       const body = response.body as ResponseEnvelope;
@@ -77,10 +77,10 @@ describe('Parts Routes', () => {
     });
   });
 
-  describe('DELETE /api/parts/:id', () => {
+  describe('DELETE /api/cost-types/:id', () => {
     it('should return 401 without Authorization header', async () => {
       const response = await request(app).delete(
-        '/api/parts/550e8400-e29b-41d4-a716-446655440000'
+        '/api/cost-types/550e8400-e29b-41d4-a716-446655440000'
       );
 
       expect(response.status).toBe(401);

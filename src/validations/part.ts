@@ -2,20 +2,21 @@ import { z } from 'zod';
 
 /**
  * Validation schema for creating a new part
+ * Using actual schema column names: sku, name, uom, avg_cost, sell_price
  */
 export const createPartSchema = z.object({
-  sku: z.string().max(100).optional(),
+  sku: z.string().min(1).max(100).optional(), // Maps to part_no concept
   name: z.string().min(1).max(255),
-  description_default: z.string().max(1000).default(''),
+  description_default: z.string().max(1000).optional(),
   category_id: z.string().uuid().optional(),
   uom: z.string().min(1).max(20),
-  is_taxable: z.boolean().default(true),
+  is_taxable: z.boolean().optional(),
   cost_type_id: z.string().uuid().optional(),
   cost_code_id: z.string().uuid().optional(),
-  sell_price: z.number().min(0).default(0),
-  avg_cost: z.number().min(0).default(0),
-  last_cost: z.number().min(0).default(0),
-  is_active: z.boolean().default(true),
+  sell_price: z.number().min(0).optional(), // Maps to unit_price concept
+  avg_cost: z.number().min(0).optional(), // Maps to unit_cost concept
+  last_cost: z.number().min(0).optional(),
+  is_active: z.boolean().optional(),
 });
 
 /**
