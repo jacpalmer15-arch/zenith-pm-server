@@ -19,11 +19,14 @@
   "license": "ISC",
   "description": "Zenith PM Server - Express + TypeScript API",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.705.0",
+    "@aws-sdk/s3-request-presigner": "^3.705.0",
     "@supabase/supabase-js": "^2.89.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
+    "multer": "^2.0.2",
     "pino": "^10.1.0",
     "zod": "^4.3.5"
   },
@@ -32,6 +35,7 @@
     "@types/cors": "^2.8.19",
     "@types/eslint__js": "^8.42.3",
     "@types/express": "^5.0.6",
+    "@types/multer": "^1.4.12",
     "@types/node": "^25.0.3",
     "@types/supertest": "^6.0.3",
     "@vercel/node": "^5.5.16",

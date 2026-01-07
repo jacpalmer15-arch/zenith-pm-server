@@ -29,6 +29,7 @@ import adminJobsRouter from '@/routes/admin/jobs.js';
 import jobCostingRouter from '@/routes/reports/jobCosting.js';
 import profitLossRouter from '@/routes/reports/profitLoss.js';
 import jobCostDetailRouter from '@/routes/reports/jobCostDetail.js';
+import filesRouter from '@/routes/files.js';
 
 export function createApp(): Express {
   const app = express();
@@ -87,6 +88,7 @@ export function createApp(): Express {
   app.use(jobCostingRouter);
   app.use(profitLossRouter);
   app.use(jobCostDetailRouter);
+  app.use(filesRouter);
 
   // 404 handler - must come after all routes
   app.use(notFoundHandler);
