@@ -71,6 +71,30 @@ export interface Project {
 }
 
 /**
+ * Change order status type
+ */
+export type ChangeOrderStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/**
+ * Change order database record type
+ */
+export interface ChangeOrder {
+  id: string;
+  co_no: string;
+  project_id: string;
+  description: string;
+  amount: number;
+  status: ChangeOrderStatus;
+  requested_by: string | null;
+  approved_by: string | null;
+  requested_at: string | null;
+  approved_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Work order status type
  */
 export type WorkOrderStatus =

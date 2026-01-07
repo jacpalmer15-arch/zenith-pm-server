@@ -22,6 +22,7 @@ import invoicesRouter from '@/routes/invoices.js';
 import invoiceLinesRouter from '@/routes/invoiceLines.js';
 import partsRouter from '@/routes/parts.js';
 import inventoryLedgerRouter from '@/routes/inventoryLedger.js';
+import changeOrdersRouter from '@/routes/changeOrders.js';
 import adminJobsRouter from '@/routes/admin/jobs.js';
 
 export function createApp(): Express {
@@ -74,6 +75,7 @@ export function createApp(): Express {
   app.use(invoiceLinesRouter);
   app.use(partsRouter);
   app.use(inventoryLedgerRouter);
+  app.use(changeOrdersRouter);
   app.use(adminJobsRouter);
 
   // 404 handler - must come after all routes
