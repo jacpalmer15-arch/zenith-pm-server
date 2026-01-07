@@ -67,6 +67,7 @@ The server will start on `http://localhost:3000`
 - `npm run dev` - Start development server with hot reload
 - `npm run build` - Build the TypeScript project
 - `npm start` - Start production server (requires build first)
+- `npm run worker` - Start the background job queue worker
 - `npm test` - Run tests
 - `npm run test:watch` - Run tests in watch mode
 - `npm run lint` - Lint code with ESLint
@@ -289,6 +290,9 @@ All API responses follow a standard envelope format:
 | WORKER_SECRET | Yes | - | Secret for worker authentication |
 | APP_REPORT_WEBHOOK_SECRET | Yes | - | Secret for webhook authentication |
 | LOG_LEVEL | No | info | Logging level (fatal/error/warn/info/debug/trace) |
+| WORKER_POLL_INTERVAL_MS | No | 5000 | Worker polling interval in milliseconds |
+| WORKER_ID | No | hostname-uuid | Unique worker instance identifier |
+| WORKER_BATCH_SIZE | No | 10 | Number of jobs to process per batch |
 
 ## Project Structure
 
@@ -310,7 +314,15 @@ All API responses follow a standard envelope format:
 │   │   └── requireRole.ts    # RBAC middleware factory
 │   ├── routes/
 │   │   ├── health.ts         # Health & version routes
-│   │   └── me.ts             # Current user endpoint
+│   │   ├── me.ts             # Current user endpoint
+│   │   └── admin/
+│   │       └── jobs.ts       # Job queue admin routes
+│   ├── workers/
+│   │   ├── jobQueueWorker.ts # Main worker loop
+│   │   └── processors/
+│   │       └── timeCostPost.ts # Time entry cost posting processor
+│   ├── scripts/
+│   │   └── startWorker.ts    # Worker CLI entry point
 │   └── types/
 │       ├── response.ts       # Response envelope types
 │       ├── auth.ts           # Auth & Employee types
@@ -369,6 +381,113 @@ import { successResponse } from '@/types/response.js';
 - All errors are caught by the centralized error handler
 - Stack traces are hidden in production
 - Errors are logged with request context
+
+## Background Job Queue Worker
+
+The system includes a background worker for processing asynchronous jobs from the `job_queue` table.
+
+### Starting the Worker
+
+```bash
+npm run worker
+```
+
+### How It Works
+
+1. **Polling**: Worker polls the `job_queue` table every `WORKER_POLL_INTERVAL_MS` (default: 5000ms)
+2. **Locking**: Jobs are locked before processing to prevent duplicate processing
+3. **Processing**: Jobs are routed to appropriate processors based on `job_type`
+4. **Retry Logic**: Failed jobs are retried up to `max_attempts` (default: 3)
+5. **Status Updates**: Jobs are marked as `COMPLETED` or `FAILED` based on outcome
+
+### Supported Job Types
+
+#### `time_entry_cost_post`
+
+Processes time entry cost posting for labor costs. When a time entry is clocked out, a job is automatically enqueued to create a `job_cost_entry`.
+
+**Payload:**
+```json
+{
+  "time_entry_id": "uuid"
+}
+```
+
+**Processing Steps:**
+1. Fetch time entry with clock_in/clock_out times
+2. Calculate hours worked (accounting for break time)
+3. Fetch labor rate from employee or settings
+4. Calculate labor cost (hours × rate)
+5. Create job_cost_entry with idempotency key
+6. Update work order total cost (if tracked)
+
+**Idempotency:** Uses key format `time_entry:<time_entry_id>` to prevent duplicate cost entries
+
+### Admin API Endpoints
+
+#### List Jobs
+```
+GET /api/admin/jobs?status=PENDING&job_type=time_entry_cost_post&page=1&limit=50
+```
+
+**Query Parameters:**
+- `status` (optional): Filter by status (PENDING, COMPLETED, FAILED)
+- `job_type` (optional): Filter by job type
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Results per page (default: 50)
+
+**Response:**
+```json
+{
+  "ok": true,
+  "data": {
+    "jobs": [...],
+    "pagination": {
+      "page": 1,
+      "limit": 50,
+      "total": 100
+    }
+  }
+}
+```
+
+#### Get Single Job
+```
+GET /api/admin/jobs/:id
+```
+
+#### Retry Failed Job
+```
+POST /api/admin/jobs/:id/retry
+```
+
+Resets a failed job to PENDING status for retry.
+
+### Manual Job Enqueueing
+
+For testing or manual job creation:
+
+```sql
+INSERT INTO job_queue (job_type, payload) 
+VALUES ('time_entry_cost_post', '{"time_entry_id": "your-uuid-here"}');
+```
+
+### Worker Configuration
+
+Environment variables for worker configuration:
+
+- `WORKER_POLL_INTERVAL_MS`: Polling interval in milliseconds (default: 5000)
+- `WORKER_ID`: Unique worker instance identifier (default: hostname-uuid)
+- `WORKER_BATCH_SIZE`: Number of jobs to process per batch (default: 10)
+
+### Graceful Shutdown
+
+The worker handles `SIGINT` and `SIGTERM` signals for graceful shutdown:
+
+```bash
+# Stop worker
+Ctrl+C
+```
 
 ## License
 
