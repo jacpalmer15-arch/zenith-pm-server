@@ -190,7 +190,7 @@ router.post(
         .limit(1);
 
       const nextLineNo = existingLines && existingLines.length > 0
-        ? (existingLines[0].line_no as number) + 1
+        ? Number(existingLines[0].line_no) + 1
         : 1;
 
       // Calculate line total
