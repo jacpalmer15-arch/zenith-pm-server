@@ -169,7 +169,7 @@ router.post(
 
 /**
  * GET /api/customers/:id
- * Get a single customer by ID
+ * Get a single customer by ID with nested locations
  * TECH role: read-only (allowed)
  * OFFICE/ADMIN: full access (allowed)
  */
@@ -182,27 +182,37 @@ router.get(
       const { id } = req.params;
       const supabase = createServerClient();
       
-      const { data, error } = await supabase
+      // Get customer
+      const { data: customer, error: customerError } = await supabase
         .from('customers')
         .select('*')
         .eq('id', id)
         .single<Customer>();
       
-      if (error) {
-        if (error.code === 'PGRST116') {
+      if (customerError) {
+        if (customerError.code === 'PGRST116') {
           res.status(404).json(
             errorResponse('NOT_FOUND', 'Customer not found')
           );
           return;
         }
-        const apiError = translateDbError(error);
+        const apiError = translateDbError(customerError);
         res.status(apiError.statusCode).json(
           errorResponse(apiError.code, apiError.message, apiError.details)
         );
         return;
       }
       
-      res.json(successResponse(data));
+      // Get active locations for this customer
+      const { data: locations } = await supabase
+        .from('locations')
+        .select('*')
+        .eq('customer_id', id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      // Return customer with nested locations
+      res.json(successResponse({ ...customer, locations: locations || [] }));
     } catch (error) {
       console.error('Error fetching customer:', error);
       res.status(500).json(
