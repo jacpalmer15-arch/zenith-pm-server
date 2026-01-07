@@ -84,9 +84,8 @@ router.patch(
       const supabase = createServerClient();
       const userId = req.auth?.userId;
       
-      // Update settings with updater info
-      // Since this is a single-row table, we update without a WHERE clause
-      // or we can use the first row
+      // Update settings - this is a single-row table
+      // We fetch it first to ensure it exists and get its ID
       const { data: existingSettings, error: fetchError } = await supabase
         .from('settings')
         .select('id')
@@ -100,6 +99,7 @@ router.patch(
         return;
       }
       
+      // Update the settings row
       const { data, error } = await supabase
         .from('settings')
         .update({

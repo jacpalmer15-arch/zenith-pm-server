@@ -5,7 +5,7 @@ import { requireAuth } from '@/middleware/requireAuth.js';
 import { requireEmployee } from '@/middleware/requireEmployee.js';
 import { requireRole } from '@/middleware/requireRole.js';
 import { createTaxRuleSchema, updateTaxRuleSchema } from '@/validations/taxRule.js';
-import { TaxRule } from '@/types/database.js';
+import { TaxRule, Settings } from '@/types/database.js';
 import { ZodError } from 'zod';
 
 const router = Router();
@@ -276,12 +276,26 @@ router.post(
       }
       
       // Update settings table to set this as default tax rule
-      // Note: settings table is a single-row table
+      // Settings is a single-row table, fetch it first to ensure it exists
+      const { data: existingSettings, error: settingsFetchError } = await supabase
+        .from('settings')
+        .select('id')
+        .single<Pick<Settings, 'id'>>();
+      
+      if (settingsFetchError) {
+        const apiError = translateDbError(settingsFetchError);
+        res.status(apiError.statusCode).json(
+          errorResponse(apiError.code, apiError.message, apiError.details)
+        );
+        return;
+      }
+      
       const { error } = await supabase
         .from('settings')
         .update({ default_tax_rule_id: id })
+        .eq('id', existingSettings.id)
         .select()
-        .single();
+        .single<Settings>();
       
       if (error) {
         const apiError = translateDbError(error);

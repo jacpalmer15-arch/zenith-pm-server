@@ -9,7 +9,7 @@ export const createPartSchema = z.object({
   name: z.string().min(1).max(255),
   description_default: z.string().max(1000).optional(),
   category_id: z.string().uuid().optional(),
-  uom: z.string().min(1).max(20).default('EA'),
+  uom: z.string().min(1).max(20),
   is_taxable: z.boolean().optional(),
   cost_type_id: z.string().uuid().optional(),
   cost_code_id: z.string().uuid().optional(),
