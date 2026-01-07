@@ -313,3 +313,44 @@ export interface Payment {
   qbo_payment_ref: string | null;
   qbo_last_synced_at: string | null;
 }
+
+/**
+ * Part database record type
+ */
+export interface Part {
+  id: string;
+  sku: string | null;
+  name: string;
+  description_default: string;
+  category_id: string | null;
+  uom: string;
+  is_taxable: boolean;
+  cost_type_id: string | null;
+  cost_code_id: string | null;
+  sell_price: number;
+  avg_cost: number;
+  last_cost: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Inventory transaction type enum
+ */
+export type InventoryTxnType = 'RECEIPT' | 'ADJUSTMENT' | 'USAGE' | 'RETURN';
+
+/**
+ * Inventory ledger database record type
+ */
+export interface InventoryLedger {
+  id: string;
+  part_id: string;
+  txn_type: InventoryTxnType;
+  qty_delta: number;
+  unit_cost: number;
+  txn_date: string;
+  reference_type: string | null;
+  reference_id: string | null;
+  created_at: string;
+}
