@@ -13,12 +13,21 @@ import {
   createReceiptSchema,
   updateReceiptSchema,
   allocateReceiptSchema,
+  type AllocateToWorkOrderInput,
+  type AllocateToOverheadInput,
 } from '@/validations/receipt.js';
 import { Receipt } from '@/types/database.js';
 import { ZodError } from 'zod';
 import { createAuditLog } from '@/services/auditLog.js';
 
 const router = Router();
+
+// Type guard for work order allocation
+function isWorkOrderAllocation(
+  data: AllocateToWorkOrderInput | AllocateToOverheadInput
+): data is AllocateToWorkOrderInput {
+  return 'allocated_to_work_order_id' in data;
+}
 
 /**
  * GET /api/receipts
@@ -370,11 +379,9 @@ router.post(
         return;
       }
 
-      // Check if allocating to work order
-      const isWorkOrderAllocation = 'allocated_to_work_order_id' in validatedData;
-      
-      // Validate work order exists if allocating to work order
-      if (isWorkOrderAllocation) {
+      // Use type guard to narrow the union type
+      if (isWorkOrderAllocation(validatedData)) {
+        // Now TypeScript knows this is AllocateToWorkOrderInput
         const workOrderId = validatedData.allocated_to_work_order_id;
         const { data: workOrder, error: woError } = await supabase
           .from('work_orders')
@@ -403,7 +410,7 @@ router.post(
         unit_cost: line.unit_cost,
         total_cost: line.total_cost,
         occurred_at: line.occurred_at,
-        work_order_id: isWorkOrderAllocation 
+        work_order_id: isWorkOrderAllocation(validatedData)
           ? validatedData.allocated_to_work_order_id
           : null,
         part_id: line.part_id || null,
@@ -425,10 +432,10 @@ router.post(
       // Update receipt with allocation details
       const updateData: Partial<Receipt> = {
         is_allocated: true,
-        allocated_to_work_order_id: isWorkOrderAllocation 
+        allocated_to_work_order_id: isWorkOrderAllocation(validatedData)
           ? validatedData.allocated_to_work_order_id
           : null,
-        allocated_overhead_bucket: isWorkOrderAllocation 
+        allocated_overhead_bucket: isWorkOrderAllocation(validatedData)
           ? null 
           : validatedData.allocated_overhead_bucket,
       };

@@ -899,6 +899,8 @@ CREATE TABLE IF NOT EXISTS "public"."receipts" (
     "is_allocated" boolean DEFAULT false NOT NULL,
     "allocated_to_work_order_id" "uuid",
     "allocated_overhead_bucket" "text",
+    "qb_source_entity" "text",
+    "qb_source_id" "text",
     "created_by" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
