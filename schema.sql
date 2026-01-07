@@ -100,6 +100,16 @@ CREATE TYPE "public"."quote_type" AS ENUM (
 ALTER TYPE "public"."quote_type" OWNER TO "postgres";
 
 
+CREATE TYPE "public"."change_order_status" AS ENUM (
+    'PENDING',
+    'APPROVED',
+    'REJECTED'
+);
+
+
+ALTER TYPE "public"."change_order_status" OWNER TO "postgres";
+
+
 CREATE TYPE "public"."work_status" AS ENUM (
     'UNSCHEDULED',
     'SCHEDULED',
@@ -217,6 +227,13 @@ begin
     out_no := s.work_order_number_prefix || lpad(s.next_work_order_seq::text, 6, '0');
     update public.settings
       set next_work_order_seq = next_work_order_seq + 1
+      where id = s.id;
+    return out_no;
+
+  elsif p_kind = 'change_order' then
+    out_no := s.change_order_number_prefix || lpad(s.next_change_order_seq::text, 6, '0');
+    update public.settings
+      set next_change_order_seq = next_change_order_seq + 1
       where id = s.id;
     return out_no;
 
@@ -395,6 +412,29 @@ ALTER TABLE "public"."audit_logs" OWNER TO "postgres";
 
 COMMENT ON TABLE "public"."audit_logs" IS 'System audit log for tracking key business actions';
 
+
+
+CREATE TABLE IF NOT EXISTS "public"."change_orders" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "co_no" "text" NOT NULL,
+    "project_id" "uuid" NOT NULL,
+    "description" "text" NOT NULL,
+    "amount" numeric(12,2) NOT NULL,
+    "status" "public"."change_order_status" DEFAULT 'PENDING'::"public"."change_order_status" NOT NULL,
+    "requested_by" "uuid",
+    "approved_by" "uuid",
+    "requested_at" timestamp with time zone DEFAULT "now"(),
+    "approved_at" timestamp with time zone,
+    "notes" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."change_orders" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."change_orders" IS 'Change orders for projects with approval workflow';
 
 
 CREATE TABLE IF NOT EXISTS "public"."cost_codes" (
@@ -857,6 +897,8 @@ CREATE TABLE IF NOT EXISTS "public"."settings" (
     "next_quote_seq" bigint DEFAULT 1 NOT NULL,
     "work_order_number_prefix" "text" DEFAULT 'WO-'::"text" NOT NULL,
     "next_work_order_seq" bigint DEFAULT 1 NOT NULL,
+    "change_order_number_prefix" "text" DEFAULT 'CO-'::"text" NOT NULL,
+    "next_change_order_seq" bigint DEFAULT 1 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "created_by" "uuid",
@@ -1017,6 +1059,16 @@ ALTER TABLE "public"."work_orders" OWNER TO "postgres";
 
 ALTER TABLE ONLY "public"."audit_logs"
     ADD CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."change_orders"
+    ADD CONSTRAINT "change_orders_co_no_key" UNIQUE ("co_no");
+
+
+
+ALTER TABLE ONLY "public"."change_orders"
+    ADD CONSTRAINT "change_orders_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1478,6 +1530,21 @@ CREATE OR REPLACE TRIGGER "trg_tax_rules_updated_at" BEFORE UPDATE ON "public"."
 
 ALTER TABLE ONLY "public"."audit_logs"
     ADD CONSTRAINT "audit_logs_actor_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."change_orders"
+    ADD CONSTRAINT "change_orders_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."change_orders"
+    ADD CONSTRAINT "change_orders_requested_by_fkey" FOREIGN KEY ("requested_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."change_orders"
+    ADD CONSTRAINT "change_orders_approved_by_fkey" FOREIGN KEY ("approved_by") REFERENCES "auth"."users"("id");
 
 
 
