@@ -3,6 +3,7 @@ import { createServerClient, translateDbError } from '@/db/index.js';
 import { successResponse, errorResponse } from '@/types/response.js';
 import { WebhookEvent } from '@/types/database.js';
 import { enqueueJob } from '@/services/jobQueue.js';
+import { createHash } from 'crypto';
 
 const router = Router();
 
@@ -51,8 +52,11 @@ router.post(
       } else if (typeof payload.eventId === 'string') {
         idempotencyKey = `${source}:${payload.eventId}`;
       } else {
-        // Generate a hash from payload if no ID is available
-        idempotencyKey = `${source}:${Date.now()}:${JSON.stringify(payload).substring(0, 50)}`;
+        // Generate a cryptographic hash from payload if no ID is available
+        const payloadHash = createHash('sha256')
+          .update(JSON.stringify(payload))
+          .digest('hex');
+        idempotencyKey = `${source}:hash:${payloadHash}`;
       }
 
       const supabase = createServerClient();
