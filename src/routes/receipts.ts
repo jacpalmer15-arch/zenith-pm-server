@@ -436,7 +436,7 @@ router.post(
           ? validatedData.allocated_to_work_order_id
           : null,
         allocated_overhead_bucket: isWorkOrderAllocation(validatedData)
-          ? null 
+          ? null
           : validatedData.allocated_overhead_bucket,
       };
 
