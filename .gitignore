@@ -36,3 +36,6 @@ coverage/
 # Temp files
 tmp/
 temp/
+
+# Uploads
+uploads/

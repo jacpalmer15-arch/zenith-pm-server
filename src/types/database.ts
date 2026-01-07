@@ -423,3 +423,17 @@ export interface PurchaseOrderLine {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * File database record type
+ */
+export interface File {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  file_kind: string;
+  storage_path: string;
+  mime_type: string | null;
+  created_by: string | null;
+  created_at: string;
+}

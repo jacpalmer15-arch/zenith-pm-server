@@ -11,6 +11,14 @@ const envSchema = z.object({
   WORKER_POLL_INTERVAL_MS: z.string().default('5000').transform(Number),
   WORKER_ID: z.string().optional(),
   WORKER_BATCH_SIZE: z.string().default('10').transform(Number),
+  // File storage configuration
+  STORAGE_PROVIDER: z.enum(['local', 's3']).default('local'),
+  STORAGE_LOCAL_PATH: z.string().default('uploads'),
+  STORAGE_MAX_FILE_SIZE: z.string().default('10485760').transform(Number), // 10MB default
+  AWS_REGION: z.string().optional(),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_S3_BUCKET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
