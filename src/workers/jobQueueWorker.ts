@@ -150,18 +150,21 @@ export class JobQueueWorker {
 
   /**
    * Lock a job for processing
+   * Returns true if successfully locked, false if already locked by another worker
    */
   private async lockJob(jobId: string): Promise<boolean> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('job_queue')
       .update({
         locked_at: new Date().toISOString(),
         locked_by: this.workerId,
       })
       .eq('id', jobId)
-      .is('locked_at', null);
+      .is('locked_at', null)
+      .select();
 
-    return !error;
+    // Check if we successfully locked the job by verifying data was returned
+    return !error && data && data.length > 0;
   }
 
   /**

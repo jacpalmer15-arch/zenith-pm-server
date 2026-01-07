@@ -96,7 +96,8 @@ export async function processTimeCostPost(
   }
 
   // 5. Calculate cost
-  const amount = Math.round(hours * laborRate * 100) / 100; // Round to 2 decimal places
+  const CURRENCY_PRECISION_MULTIPLIER = 100;
+  const amount = Math.round(hours * laborRate * CURRENCY_PRECISION_MULTIPLIER) / CURRENCY_PRECISION_MULTIPLIER; // Round to 2 decimal places
 
   // 6. Get cost_type_id and cost_code_id from settings
   // If not set in settings, we need to find a default labor cost type and code
@@ -104,11 +105,14 @@ export async function processTimeCostPost(
   let costCodeId = settings.labor_cost_code_id;
 
   // If settings don't have labor cost type/code, try to find one with "labor" in the name
+  // Note: This is a fallback mechanism. For production use, configure labor_cost_type_id 
+  // and labor_cost_code_id in settings to avoid ambiguity.
   if (!costTypeId || !costCodeId) {
     const { data: costTypes } = await supabase
       .from('cost_types')
       .select('id, name')
       .ilike('name', '%labor%')
+      .order('name', { ascending: true })
       .limit(1);
 
     if (costTypes && costTypes.length > 0) {
@@ -120,6 +124,7 @@ export async function processTimeCostPost(
         .from('cost_codes')
         .select('id, code')
         .eq('cost_type_id', costTypeId)
+        .order('code', { ascending: true })
         .limit(1);
 
       if (costCodes && costCodes.length > 0) {
@@ -193,10 +198,13 @@ export async function processTimeCostPost(
   if (workOrderWithCost && 'total_cost' in workOrderWithCost) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const currentTotal = workOrderWithCost.total_cost ?? 0;
+    // Ensure currentTotal is a valid number before arithmetic
+    const totalAsNumber = typeof currentTotal === 'number' ? currentTotal : Number(currentTotal) || 0;
+    const newTotal = totalAsNumber + amount;
+    
     await supabase
       .from('work_orders')
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      .update({ total_cost: currentTotal + amount })
+      .update({ total_cost: newTotal })
       .eq('id', timeEntry.work_order_id);
   }
 }
