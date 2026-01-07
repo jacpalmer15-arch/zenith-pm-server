@@ -8,6 +8,9 @@ const envSchema = z.object({
   WORKER_SECRET: z.string().min(1),
   APP_REPORT_WEBHOOK_SECRET: z.string().min(1),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  WORKER_POLL_INTERVAL_MS: z.string().default('5000').transform(Number),
+  WORKER_ID: z.string().optional(),
+  WORKER_BATCH_SIZE: z.string().default('10').transform(Number),
 });
 
 export type Env = z.infer<typeof envSchema>;
