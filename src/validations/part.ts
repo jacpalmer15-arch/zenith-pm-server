@@ -6,16 +6,16 @@ import { z } from 'zod';
 export const createPartSchema = z.object({
   sku: z.string().max(100).optional(),
   name: z.string().min(1).max(255),
-  description_default: z.string().max(1000).optional(),
+  description_default: z.string().max(1000).default(''),
   category_id: z.string().uuid().optional(),
   uom: z.string().min(1).max(20),
-  is_taxable: z.boolean().optional(),
+  is_taxable: z.boolean().default(true),
   cost_type_id: z.string().uuid().optional(),
   cost_code_id: z.string().uuid().optional(),
-  sell_price: z.number().min(0).optional(),
-  avg_cost: z.number().min(0).optional(),
-  last_cost: z.number().min(0).optional(),
-  is_active: z.boolean().optional(),
+  sell_price: z.number().min(0).default(0),
+  avg_cost: z.number().min(0).default(0),
+  last_cost: z.number().min(0).default(0),
+  is_active: z.boolean().default(true),
 });
 
 /**
