@@ -86,12 +86,7 @@ describe('Invoice Routes', () => {
   describe('POST /api/invoices/:id/mark-paid', () => {
     it('should return 401 without Authorization header', async () => {
       const response = await request(app)
-        .post('/api/invoices/550e8400-e29b-41d4-a716-446655440000/mark-paid')
-        .send({
-          payment_date: '2026-01-06',
-          amount: 100.00,
-          payment_method: 'CHECK',
-        });
+        .post('/api/invoices/550e8400-e29b-41d4-a716-446655440000/mark-paid');
 
       expect(response.status).toBe(401);
       const body = response.body as ResponseEnvelope;

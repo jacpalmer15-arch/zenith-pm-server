@@ -5,8 +5,7 @@ import { requireAuth } from '@/middleware/requireAuth.js';
 import { requireEmployee } from '@/middleware/requireEmployee.js';
 import { requireRole } from '@/middleware/requireRole.js';
 import { createInvoiceSchema, updateInvoiceSchema } from '@/validations/invoice.js';
-import { recordPaymentSchema } from '@/validations/payment.js';
-import { Invoice, InvoiceLine, Payment } from '@/types/database.js';
+import { Invoice, InvoiceLine } from '@/types/database.js';
 import { ZodError } from 'zod';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { createAuditLog } from '@/services/auditLog.js';
@@ -25,22 +24,6 @@ async function getNextInvoiceNumber(
 
   return {
     invoiceNo: typeof result.data === 'string' ? result.data : null,
-    error: result.error,
-  };
-}
-
-/**
- * Helper function to get next payment number from database
- */
-async function getNextPaymentNumber(
-  supabase: SupabaseClient
-): Promise<{ paymentNo: string | null; error: unknown }> {
-  const result = await supabase.rpc('get_next_number', {
-    p_kind: 'payment',
-  });
-
-  return {
-    paymentNo: typeof result.data === 'string' ? result.data : null,
     error: result.error,
   };
 }
@@ -421,9 +404,9 @@ router.post(
       // Check if invoice exists and is DRAFT
       const { data: existingInvoiceData, error: fetchError } = await supabase
         .from('invoices')
-        .select('status')
+        .select('status, project_id, total_amount, tax_rule_id')
         .eq('id', id)
-        .single<{ status: string }>();
+        .single<{ status: string; project_id: string | null; total_amount: number; tax_rule_id: string }>();
 
       if (fetchError) {
         if (fetchError.code === 'PGRST116') {
@@ -446,12 +429,28 @@ router.post(
         return;
       }
 
-      // Update invoice status to SENT
+      // Get tax rate from tax_rule to snapshot
+      const { data: taxRule, error: taxError } = await supabase
+        .from('tax_rules')
+        .select('rate')
+        .eq('id', existingInvoiceData.tax_rule_id)
+        .single<{ rate: number }>();
+
+      if (taxError || !taxRule) {
+        console.error('Error fetching tax rule:', taxError);
+        res.status(500).json(
+          errorResponse('INTERNAL_SERVER_ERROR', 'Failed to fetch tax rule')
+        );
+        return;
+      }
+
+      // Update invoice status to SENT and snapshot tax rate
       const { data, error } = await supabase
         .from('invoices')
         .update({
           status: 'SENT',
           sent_at: new Date().toISOString(),
+          tax_rate_snapshot: taxRule.rate,
           updated_by: req.employee!.id,
         })
         .eq('id', id)
@@ -495,6 +494,19 @@ router.post(
         }
       }
 
+      // Create audit log
+      const { error: auditError } = await createAuditLog(supabase, {
+        entity_type: 'invoice',
+        entity_id: id,
+        action: 'INVOICE_SENT',
+        actor_user_id: req.employee!.id,
+      });
+
+      if (auditError) {
+        console.error('Error creating audit log:', auditError);
+        // Don't fail the request if audit log fails
+      }
+
       res.json(successResponse(data));
     } catch (error) {
       console.error('Error sending invoice:', error);
@@ -507,7 +519,7 @@ router.post(
 
 /**
  * POST /api/invoices/:id/mark-paid
- * Record payment for an invoice
+ * Mark invoice as paid
  * TECH role: not allowed (403)
  * OFFICE/ADMIN: allowed
  */
@@ -519,10 +531,6 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-
-      // Validate request body
-      const validatedData = recordPaymentSchema.parse(req.body);
-
       const supabase = createServerClient();
 
       // Get invoice
@@ -546,70 +554,20 @@ router.post(
         return;
       }
 
-      // Validate invoice status (must be SENT or PARTIAL)
-      if (invoiceData.status !== 'SENT' && invoiceData.status !== 'PARTIAL') {
+      // Validate invoice status (must be SENT)
+      if (invoiceData.status !== 'SENT') {
         res.status(400).json(
-          errorResponse('VALIDATION_ERROR', 'Only SENT or PARTIAL invoices can receive payments')
+          errorResponse('VALIDATION_ERROR', 'Only SENT invoices can be marked as paid')
         );
         return;
       }
 
-      // Call DB function to get next payment number
-      const { paymentNo, error: numberError } = await getNextPaymentNumber(supabase);
-
-      if (numberError || !paymentNo) {
-        console.error('Error generating payment number:', numberError);
-        res.status(500).json(
-          errorResponse('INTERNAL_SERVER_ERROR', 'Failed to generate payment number')
-        );
-        return;
-      }
-
-      // Create payment record
-      const { data: payment, error: paymentError } = await supabase
-        .from('payments')
-        .insert({
-          invoice_id: id,
-          payment_no: paymentNo,
-          payment_date: validatedData.payment_date,
-          amount: validatedData.amount,
-          payment_method: validatedData.payment_method,
-          reference_no: validatedData.reference_no || null,
-          notes: validatedData.notes || null,
-          created_by: req.employee!.id,
-          updated_by: req.employee!.id,
-        })
-        .select()
-        .single<Payment>();
-
-      if (paymentError) {
-        const apiError = translateDbError(paymentError);
-        res.status(apiError.statusCode).json(
-          errorResponse(apiError.code, apiError.message, apiError.details)
-        );
-        return;
-      }
-
-      // Calculate new paid amount
-      const newPaidAmount = Number(invoiceData.paid_amount) + validatedData.amount;
-      const totalAmount = Number(invoiceData.total_amount);
-
-      // Determine new status
-      let newStatus: 'PAID' | 'PARTIAL' = 'PARTIAL';
-      let paidAt: string | null = null;
-
-      if (newPaidAmount >= totalAmount) {
-        newStatus = 'PAID';
-        paidAt = new Date().toISOString();
-      }
-
-      // Update invoice paid_amount and status
+      // Update invoice status to PAID
       const { data: updatedInvoice, error: updateError } = await supabase
         .from('invoices')
         .update({
-          paid_amount: newPaidAmount,
-          status: newStatus,
-          paid_at: paidAt,
+          status: 'PAID',
+          paid_at: new Date().toISOString(),
           updated_by: req.employee!.id,
         })
         .eq('id', id)
@@ -626,32 +584,28 @@ router.post(
 
       // If invoice is linked to a project, update project paid_amount
       if (invoiceData.project_id) {
-        // Get current project
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
           .select('paid_amount')
           .eq('id', invoiceData.project_id)
-          .single<{
-            paid_amount: number;
-          }>();
+          .single<{ paid_amount: number }>();
 
         if (projectError) {
           console.error('Error fetching project:', projectError);
           // Don't fail the request if project update fails
         } else {
-          // Update project paid_amount
-          const newProjectPaidAmount = Number(projectData.paid_amount) + validatedData.amount;
+          const newPaidAmount = Number(projectData.paid_amount) + Number(invoiceData.total_amount);
 
           const { error: projectUpdateError } = await supabase
             .from('projects')
             .update({
-              paid_amount: newProjectPaidAmount,
+              paid_amount: newPaidAmount,
               updated_by: req.employee!.id,
             })
             .eq('id', invoiceData.project_id);
 
           if (projectUpdateError) {
-            console.error('Error updating project amounts:', projectUpdateError);
+            console.error('Error updating project paid amount:', projectUpdateError);
             // Don't fail the request if project update fails
           }
         }
@@ -661,13 +615,8 @@ router.post(
       const { error: auditError } = await createAuditLog(supabase, {
         entity_type: 'invoice',
         entity_id: id,
-        action: 'PAYMENT_RECORDED',
+        action: 'INVOICE_PAID',
         actor_user_id: req.employee!.id,
-        before_data: invoiceData as unknown as Record<string, unknown>,
-        after_data: {
-          ...updatedInvoice,
-          payment,
-        } as unknown as Record<string, unknown>,
       });
 
       if (auditError) {
@@ -675,22 +624,11 @@ router.post(
         // Don't fail the request if audit log fails
       }
 
-      res.json(
-        successResponse({
-          invoice: updatedInvoice,
-          payment,
-        })
-      );
+      res.json(successResponse(updatedInvoice));
     } catch (error) {
-      if (error instanceof ZodError) {
-        res.status(400).json(
-          errorResponse('VALIDATION_ERROR', 'Invalid request data', error.issues)
-        );
-        return;
-      }
-      console.error('Error recording payment:', error);
+      console.error('Error marking invoice as paid:', error);
       res.status(500).json(
-        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to record payment')
+        errorResponse('INTERNAL_SERVER_ERROR', 'Failed to mark invoice as paid')
       );
     }
   }

@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Validation schema for creating a new invoice line
  */
 export const createInvoiceLineSchema = z.object({
-  part_id: z.string().uuid().optional(),
+  quote_line_id: z.string().uuid().optional(),
   description: z.string().min(1).max(500),
   uom: z.string().min(1).max(20),
   qty: z.number().positive(),

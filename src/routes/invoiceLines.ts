@@ -206,17 +206,17 @@ router.post(
         return;
       }
 
-      // If part_id is provided, verify it exists
-      if (validatedData.part_id) {
-        const { data: part, error: partError } = await supabase
-          .from('parts')
+      // If quote_line_id is provided, verify it exists
+      if (validatedData.quote_line_id) {
+        const { data: quoteLine, error: quoteLineError } = await supabase
+          .from('quote_lines')
           .select('id')
-          .eq('id', validatedData.part_id)
+          .eq('id', validatedData.quote_line_id)
           .single();
 
-        if (partError || !part) {
+        if (quoteLineError || !quoteLine) {
           res.status(400).json(
-            errorResponse('VALIDATION_ERROR', 'Invalid part_id: part does not exist')
+            errorResponse('VALIDATION_ERROR', 'Invalid quote_line_id: quote line does not exist')
           );
           return;
         }
@@ -333,17 +333,17 @@ router.patch(
         return;
       }
 
-      // If part_id is being updated, verify it exists
-      if (validatedData.part_id) {
-        const { data: part, error: partError } = await supabase
-          .from('parts')
+      // If quote_line_id is being updated, verify it exists
+      if (validatedData.quote_line_id) {
+        const { data: quoteLine, error: quoteLineError } = await supabase
+          .from('quote_lines')
           .select('id')
-          .eq('id', validatedData.part_id)
+          .eq('id', validatedData.quote_line_id)
           .single();
 
-        if (partError || !part) {
+        if (quoteLineError || !quoteLine) {
           res.status(400).json(
-            errorResponse('VALIDATION_ERROR', 'Invalid part_id: part does not exist')
+            errorResponse('VALIDATION_ERROR', 'Invalid quote_line_id: quote line does not exist')
           );
           return;
         }
