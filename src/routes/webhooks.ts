@@ -289,4 +289,262 @@ router.post(
   }
 );
 
+/**
+ * POST /api/webhooks/qbo
+ * Receive QuickBooks webhook payloads with signature verification
+ */
+router.post(
+  '/api/webhooks/qbo',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const signature = req.headers['intuit-signature'] as string | undefined;
+
+      if (!req.rawBody) {
+        res.status(500).json(
+          errorResponse(
+            'INTERNAL_SERVER_ERROR',
+            'Raw body unavailable for signature verification'
+          )
+        );
+        return;
+      }
+
+      if (!signature) {
+        res.status(401).json(
+          errorResponse('INVALID_SIGNATURE', 'Missing QuickBooks signature')
+        );
+        return;
+      }
+
+      const expectedSignature = createHmac('sha256', env.QBO_WEBHOOK_VERIFIER)
+        .update(req.rawBody)
+        .digest('base64');
+
+      const signatureBuffer = Buffer.from(signature, 'base64');
+      const expectedBuffer = Buffer.from(expectedSignature, 'base64');
+
+      if (
+        signatureBuffer.length !== expectedBuffer.length ||
+        !timingSafeEqual(signatureBuffer, expectedBuffer)
+      ) {
+        res.status(401).json(
+          errorResponse('INVALID_SIGNATURE', 'Invalid QuickBooks signature')
+        );
+        return;
+      }
+
+      const payload = req.body as Record<string, unknown>;
+      const payloadHash = createHash('sha256')
+        .update(req.rawBody)
+        .digest('hex');
+
+      const realmId =
+        Array.isArray(payload.eventNotifications) &&
+        payload.eventNotifications.length > 0 &&
+        typeof payload.eventNotifications[0]?.realmId === 'string'
+          ? payload.eventNotifications[0]?.realmId
+          : 'unknown';
+
+      const idempotencyKey = `qbo:${realmId}:${payloadHash}`;
+      const supabase = createServerClient();
+
+      const { data: existingEvent } = await supabase
+        .from('qbo_webhook_events')
+        .select('id')
+        .eq('idempotency_key', idempotencyKey)
+        .limit(1);
+
+      if (existingEvent && existingEvent.length > 0) {
+        res.status(200).json(
+          successResponse({
+            status: 'duplicate',
+            message: 'Event already received',
+          })
+        );
+        return;
+      }
+
+      const { data: webhookEvent, error: webhookError } = await supabase
+        .from('qbo_webhook_events')
+        .insert({
+          realm_id: realmId,
+          idempotency_key: idempotencyKey,
+          payload: payload,
+          status: 'PENDING',
+        })
+        .select()
+        .single();
+
+      if (webhookError || !webhookEvent) {
+        const apiError = webhookError
+          ? translateDbError(webhookError)
+          : {
+              statusCode: 500,
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'Failed to persist webhook event',
+            };
+        res.status(apiError.statusCode).json(
+          errorResponse(apiError.code, apiError.message, apiError.details)
+        );
+        return;
+      }
+
+      const { error: jobError } = await enqueueJob(
+        supabase,
+        'process_qbo_webhook_event',
+        {
+          webhook_event_id: webhookEvent.id,
+          realm_id: realmId,
+        }
+      );
+
+      if (jobError) {
+        console.error('Failed to enqueue QuickBooks webhook job:', jobError);
+      }
+
+      res.status(202).json(
+        successResponse({
+          status: 'received',
+          webhook_event_id: webhookEvent.id,
+          realm_id: realmId,
+        })
+      );
+    } catch (error) {
+      console.error('Error processing QuickBooks webhook:', error);
+      res
+        .status(500)
+        .json(
+          errorResponse('INTERNAL_SERVER_ERROR', 'Failed to process webhook')
+        );
+    }
+  }
+);
+
+/**
+ * POST /api/webhooks/pm-app
+ * Receive webhook payloads from the project management app with HMAC signature verification
+ */
+router.post(
+  '/api/webhooks/pm-app',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const signature = req.headers['x-signature'] as string | undefined;
+
+      if (!req.rawBody) {
+        res.status(500).json(
+          errorResponse(
+            'INTERNAL_SERVER_ERROR',
+            'Raw body unavailable for signature verification'
+          )
+        );
+        return;
+      }
+
+      if (!signature) {
+        res.status(401).json(
+          errorResponse('INVALID_SIGNATURE', 'Missing webhook signature')
+        );
+        return;
+      }
+
+      const expectedSignature = createHmac('sha256', env.PM_APP_WEBHOOK_SECRET)
+        .update(req.rawBody)
+        .digest('hex');
+
+      const signatureBuffer = Buffer.from(signature, 'hex');
+      const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+      if (
+        signatureBuffer.length !== expectedBuffer.length ||
+        !timingSafeEqual(signatureBuffer, expectedBuffer)
+      ) {
+        res.status(401).json(
+          errorResponse('INVALID_SIGNATURE', 'Invalid webhook signature')
+        );
+        return;
+      }
+
+      const payload = req.body as Record<string, unknown>;
+      const eventId =
+        typeof payload.event_id === 'string' && payload.event_id
+          ? payload.event_id
+          : createHash('sha256').update(req.rawBody).digest('hex');
+
+      const idempotencyKey = `pm-app:${eventId}`;
+      const supabase = createServerClient();
+
+      const { data: existingEvent } = await supabase
+        .from('webhook_events')
+        .select('id')
+        .eq('idempotency_key', idempotencyKey)
+        .limit(1);
+
+      if (existingEvent && existingEvent.length > 0) {
+        res.status(200).json(
+          successResponse({
+            status: 'duplicate',
+            message: 'Event already received',
+          })
+        );
+        return;
+      }
+
+      const { data: webhookEvent, error: webhookError } = await supabase
+        .from('webhook_events')
+        .insert({
+          source: 'pm-app',
+          event_type:
+            typeof payload.event_type === 'string' ? payload.event_type : 'pm_app_event',
+          payload: payload,
+          status: 'PENDING',
+          idempotency_key: idempotencyKey,
+        })
+        .select()
+        .single();
+
+      if (webhookError || !webhookEvent) {
+        const apiError = webhookError
+          ? translateDbError(webhookError)
+          : {
+              statusCode: 500,
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'Failed to persist webhook event',
+            };
+        res.status(apiError.statusCode).json(
+          errorResponse(apiError.code, apiError.message, apiError.details)
+        );
+        return;
+      }
+
+      const { error: jobError } = await enqueueJob(
+        supabase,
+        'process_pm_app_webhook',
+        {
+          webhook_event_id: webhookEvent.id,
+          event_id: eventId,
+        }
+      );
+
+      if (jobError) {
+        console.error('Failed to enqueue pm-app webhook job:', jobError);
+      }
+
+      res.status(202).json(
+        successResponse({
+          status: 'received',
+          webhook_event_id: webhookEvent.id,
+          event_id: eventId,
+        })
+      );
+    } catch (error) {
+      console.error('Error processing pm-app webhook:', error);
+      res
+        .status(500)
+        .json(
+          errorResponse('INTERNAL_SERVER_ERROR', 'Failed to process webhook')
+        );
+    }
+  }
+);
+
 export default router;

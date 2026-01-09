@@ -38,6 +38,7 @@ import costTypesRouter from '@/routes/costTypes.js';
 import costCodesRouter from '@/routes/costCodes.js';
 import taxRulesRouter from '@/routes/taxRules.js';
 import settingsRouter from '@/routes/settings.js';
+import quickbooksRouter from '@/routes/quickbooks.js';
 
 export function createApp(): Express {
   const app = express();
@@ -54,7 +55,11 @@ export function createApp(): Express {
     limit: '1mb',
     verify: (req: Request, _res: Response, buf: Buffer) => {
       // Store raw body for webhook signature verification (app-report only)
-      if (req.path === '/api/webhooks/app-report') {
+      if (
+        req.path === '/api/webhooks/app-report' ||
+        req.path === '/api/webhooks/qbo' ||
+        req.path === '/api/webhooks/pm-app'
+      ) {
         req.rawBody = buf.toString('utf8');
       }
     }
@@ -109,6 +114,7 @@ export function createApp(): Express {
   app.use(filesRouter);
   app.use(appRouter);
   app.use(webhooksRouter);
+  app.use(quickbooksRouter);
   app.use(costTypesRouter);
   app.use(costCodesRouter);
   app.use(taxRulesRouter);

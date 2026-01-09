@@ -525,3 +525,47 @@ export interface Settings {
   updated_by: string | null;
   default_labor_rate: number;
 }
+
+/**
+ * QuickBooks connection record type
+ */
+export interface QboConnection {
+  id: string;
+  realm_id: string;
+  access_token_enc: string;
+  refresh_token_enc: string;
+  expires_at: string;
+  scope: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * QuickBooks entity mapping record type
+ */
+export interface QboEntityMap {
+  id: string;
+  entity_type: string;
+  local_table: string | null;
+  local_id: string;
+  qbo_id: string;
+  qbo_sync_token: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * QuickBooks webhook event record type
+ */
+export interface QboWebhookEvent {
+  id: string;
+  realm_id: string;
+  idempotency_key: string;
+  payload: Record<string, unknown>;
+  status: string;
+  attempts: number;
+  last_error: string | null;
+  received_at: string;
+  processed_at: string | null;
+}
