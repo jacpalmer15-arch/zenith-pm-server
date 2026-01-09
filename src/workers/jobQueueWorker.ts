@@ -2,6 +2,9 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/db/client.js';
 import { env } from '@/config/env.js';
 import { processTimeCostPost } from './processors/timeCostPost.js';
+import { processQboWebhookEvent } from './processors/qboWebhook.js';
+import { processQboPushCustomer, processQboPushProject } from './processors/qboPush.js';
+import { processPmAppWebhook } from './processors/pmAppWebhook.js';
 import { randomUUID } from 'crypto';
 import os from 'os';
 
@@ -174,6 +177,18 @@ export class JobQueueWorker {
     switch (job.job_type) {
       case 'time_entry_cost_post':
         await processTimeCostPost(this.supabase, job.payload);
+        break;
+      case 'process_qbo_webhook_event':
+        await processQboWebhookEvent(this.supabase, job.payload);
+        break;
+      case 'qbo_push_customer':
+        await processQboPushCustomer(this.supabase, job.payload);
+        break;
+      case 'qbo_push_project':
+        await processQboPushProject(this.supabase, job.payload);
+        break;
+      case 'process_pm_app_webhook':
+        await processPmAppWebhook(this.supabase, job.payload);
         break;
       default:
         throw new Error(`Unknown job type: ${job.job_type}`);
